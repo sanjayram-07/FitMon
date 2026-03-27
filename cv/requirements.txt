@@ -1,0 +1,4 @@
+mediapipe
+opencv-python
+python-socketio[client]
+numpy
