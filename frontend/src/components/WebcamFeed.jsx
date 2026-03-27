@@ -1,10 +1,7 @@
-import { useRef, useEffect, useCallback } from 'react';
-import Webcam from 'react-webcam';
-import { initializePoseDetector, detectPose, drawLandmarks, closePoseDetector } from '../services/poseDetector';
-import socketService from '../services/socketService';
-import useSessionStore from '../stores/useSessionStore';
+import { BicepCurlEngine } from '../utils/cvLogic';
 
 const FRAME_INTERVAL = 100; // ~10 FPS
+const curlEngine = new BicepCurlEngine();
 
 export default function WebcamFeed() {
   const webcamRef = useRef(null);
@@ -13,6 +10,13 @@ export default function WebcamFeed() {
   const lastFrameTime = useRef(0);
   const sessionActive = useSessionStore((s) => s.sessionActive);
   const setPoseReady = useSessionStore((s) => s.setPoseReady);
+
+  // Reset engine when session starts/ends
+  useEffect(() => {
+    if (!sessionActive) {
+      curlEngine.reset();
+    }
+  }, [sessionActive]);
 
   // Initialize MediaPipe
   useEffect(() => {
@@ -56,9 +60,15 @@ export default function WebcamFeed() {
       // Draw skeleton overlay
       drawLandmarks(ctx, landmarks, canvas.width, canvas.height);
 
-      // Send landmarks to server (if session active)
-      if (sessionActive) {
-        socketService.sendFrame(landmarks, Date.now());
+      // ─── LOCAL CV PROCESSING ───
+      const results = curlEngine.processFrame(landmarks, Date.now());
+
+      // Send results to server (if session active)
+      if (sessionActive && results.valid) {
+        socketService.sendCVResults({
+          ...results,
+          landmarks, // Keep landmarks for drawing or additional backend logs
+        });
       }
     } else {
       ctx.clearRect(0, 0, canvas.width, canvas.height);

@@ -1,5 +1,4 @@
 const sessionManager = require('../services/sessionManager');
-const { processFrame } = require('../services/cvProcessor');
 const { analyzeFusion, getRepEngagement } = require('../services/fusionEngine');
 const { generateReport } = require('../services/reportGenerator');
 
@@ -15,8 +14,6 @@ function registerSocketHandlers(io) {
       console.log(`[Socket] start_session from ${socket.id}`);
       const session = sessionManager.createSession(socket.id);
 
-      console.log(`[Session] Created: ${session.id}`);
-
       if (typeof callback === 'function') {
         callback({ sessionId: session.id, status: 'started' });
       }
@@ -24,70 +21,84 @@ function registerSocketHandlers(io) {
       socket.emit('session_started', { sessionId: session.id });
     });
 
-    // ─── FRAME DATA (landmarks from client MediaPipe) ───
-    socket.on('frame', (data) => {
+    // ─── CV RESULTS (Processed results from Python or Frontend) ───
+    socket.on('cv_results', (data) => {
       const session = sessionManager.getSessionBySocket(socket.id);
       if (!session) return;
 
-      const { landmarks, timestamp } = data;
-      if (!landmarks) return;
+      const {
+        angle,
+        repCount,
+        repState,
+        postureScore,
+        elbowStability,
+        smoothness,
+        feedback,
+        repCompleted,
+        repCorrect,
+        landmarks,
+      } = data;
 
-      // Process CV
-      const frameResult = processFrame(session, landmarks, timestamp || Date.now());
-
-      if (!frameResult.valid) {
-        socket.emit('feedback', {
-          type: 'warning',
-          message: frameResult.message,
-          repCount: session.totalReps,
-        });
-        return;
-      }
-
-      // Update frame stats
-      sessionManager.updateFrame(session, frameResult.postureScore);
-
-      // Run fusion analysis
-      const fusionResult = analyzeFusion(session, frameResult);
+      // Update frame stats internally for report consistency
+      sessionManager.updateFrame(session, postureScore || 0);
 
       // Handle completed rep
-      if (frameResult.repCompleted) {
+      if (repCompleted) {
+        // Here we still call fusion engine to evaluate engagement
         const engagement = getRepEngagement(session);
-        sessionManager.recordRep(session, frameResult.repCorrect, {
-          formScore: frameResult.formScore,
-          minAngle: frameResult.repData?.minAngle,
-          maxAngle: frameResult.repData?.maxAngle,
+        sessionManager.recordRep(session, repCorrect, {
+          formScore: data.formScore || postureScore,
+          minAngle: data.minAngle,
+          maxAngle: data.maxAngle,
           engagement,
         });
       }
 
-      // Collect all feedback messages
+      // Fusion analysis (fusing with Latest FSR sensor data)
+      // We pass a synthetic frameResult to the fusion engine
+      const syntheticFrameResult = {
+        valid: true,
+        postureScore: postureScore || 0,
+        repState: repState || 'IDLE',
+      };
+      const fusionResult = analyzeFusion(session, syntheticFrameResult);
+
+      // Collect feedback from CV + Fusion
       const allFeedback = [
-        ...frameResult.feedback,
+        ...(feedback || []),
         ...fusionResult.alerts,
       ];
 
-      // Add warnings to session
+      // Store warnings in session for report
       allFeedback.forEach((msg) => {
         sessionManager.addWarning(session, msg);
       });
 
-      // Emit feedback to client
+      // Broadcast back to current client (and potentially others)
       socket.emit('feedback', {
         type: 'update',
-        angle: frameResult.angle,
+        angle,
         repCount: session.totalReps,
-        repState: frameResult.repState,
-        postureScore: frameResult.postureScore,
-        elbowStability: frameResult.elbowStability,
-        smoothness: frameResult.smoothness,
-        formScore: frameResult.formScore,
+        repState,
+        postureScore,
+        elbowStability,
+        smoothness,
         cvScore: fusionResult.cvScore,
         fsrScore: fusionResult.fsrScore,
         engagementStatus: fusionResult.engagementStatus,
         feedback: allFeedback,
-        repCompleted: frameResult.repCompleted,
-        repCorrect: frameResult.repCorrect,
+        repCompleted,
+        repCorrect,
+      });
+    });
+
+    // ─── LEGACY FRAME HANDLER (Now just a relay or warning) ───
+    socket.on('frame', (data) => {
+      // Backend no longer processes raw landmarks.
+      // Clients must process locally and send 'cv_results'.
+      socket.emit('feedback', {
+        type: 'warning',
+        message: 'Backend CV processing disabled. Please update your client to send processed results.',
       });
     });
 
@@ -95,51 +106,26 @@ function registerSocketHandlers(io) {
     socket.on('iot_data', (data) => {
       const session = sessionManager.getSessionBySocket(socket.id);
       if (!session) return;
-
-      const { value, timestamp } = data;
-      if (typeof value !== 'number') return;
-
-      sessionManager.updateFSR(session, value, timestamp || Date.now());
+      sessionManager.updateFSR(session, data.value, data.timestamp || Date.now());
     });
 
     // ─── END SESSION ───
     socket.on('end_session', async (data, callback) => {
       const session = sessionManager.getSessionBySocket(socket.id);
-      if (!session) {
-        if (typeof callback === 'function') {
-          callback({ error: 'No active session' });
-        }
-        return;
-      }
+      if (!session) return;
 
-      console.log(`[Session] Ending: ${session.id}`);
-
-      // Generate summary
       const summary = sessionManager.generateSummary(session);
-
-      // Generate full report (Firestore + Gemini)
       const report = await generateReport(summary);
 
-      // Send to client
       socket.emit('session_summary', report);
+      if (typeof callback === 'function') callback({ status: 'completed', report });
 
-      if (typeof callback === 'function') {
-        callback({ status: 'completed', report });
-      }
-
-      // Clean up
       sessionManager.deleteSession(session.id);
-      console.log(`[Session] Cleaned up: ${session.id}`);
     });
 
-    // ─── DISCONNECT ───
     socket.on('disconnect', () => {
-      console.log(`[Socket] Client disconnected: ${socket.id}`);
       const session = sessionManager.getSessionBySocket(socket.id);
-      if (session) {
-        sessionManager.deleteSession(session.id);
-        console.log(`[Session] Auto-cleaned on disconnect: ${session.id}`);
-      }
+      if (session) sessionManager.deleteSession(session.id);
     });
   });
 }

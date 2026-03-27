@@ -70,9 +70,9 @@ class SocketService {
     this.socket.emit('start_session', {});
   }
 
-  sendFrame(landmarks, timestamp) {
+  sendCVResults(results) {
     if (!this.socket?.connected) return;
-    this.socket.volatile.emit('frame', { landmarks, timestamp });
+    this.socket.emit('cv_results', results);
   }
 
   sendIoTData(value, timestamp) {
