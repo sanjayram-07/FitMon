@@ -31,20 +31,22 @@ export default function App() {
         <div className="app-shell__aurora app-shell__aurora--two" />
         <Navbar />
 
-        <Routes>
-          <Route path="/" element={<DefaultAuthenticatedRedirect />} />
-          <Route path="/login" element={<Login />} />
+        <main className="app-main">
+          <Routes>
+            <Route path="/" element={<DefaultAuthenticatedRedirect />} />
+            <Route path="/login" element={<Login />} />
 
-          <Route element={<ProtectedRoute roles={['trainee']} />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/session" element={<Session />} />
-            <Route path="/report/:id" element={<Report />} />
-          </Route>
+            <Route element={<ProtectedRoute roles={['trainee']} />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/session" element={<Session />} />
+              <Route path="/report/:id" element={<Report />} />
+            </Route>
 
-          <Route element={<ProtectedRoute roles={['mentor']} />}>
-            <Route path="/mentor" element={<Mentor />} />
-          </Route>
-        </Routes>
+            <Route element={<ProtectedRoute roles={['mentor']} />}>
+              <Route path="/mentor" element={<Mentor />} />
+            </Route>
+          </Routes>
+        </main>
       </div>
     </BrowserRouter>
   );

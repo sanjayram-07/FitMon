@@ -52,9 +52,9 @@ export default function SessionPage() {
   }, []);
 
   return (
-    <div className="min-h-screen pt-20 pb-8 px-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6 animate-fade-in">
+    <div className="page session-page">
+      <div className="container">
+        <div className="session-header fade-up">
           <ScrollFloat containerClassName="session-title-wrap" textClassName="session-title">
             LIVE SESSION
           </ScrollFloat>
@@ -71,12 +71,14 @@ export default function SessionPage() {
           />
         </div>
 
-        <div className="grid lg:grid-cols-[1fr_320px] gap-6">
-          <div className="flex flex-col gap-4">
-            <WebcamFeed />
+        <div className="session-grid">
+          <div className="session-stack">
+            <div className="card session-feed-card">
+              <WebcamFeed />
+            </div>
 
             {socketError ? (
-              <div className="camera-error relative top-auto left-auto right-auto">
+              <div className="camera-error camera-error-inline">
                 <div>
                   <strong>Socket connection problem</strong>
                   <p>{socketError}</p>
@@ -84,7 +86,7 @@ export default function SessionPage() {
               </div>
             ) : null}
 
-            <div className="session-control-dock glass-card">
+            <div className="card session-control-dock">
               <div className="session-control-copy">
                 <div className={`status-badge ${poseReady && isConnected ? 'connected' : 'disconnected'}`}>
                   {poseReady && isConnected ? 'Pose + Socket Ready' : 'Preparing Session'}
@@ -99,25 +101,25 @@ export default function SessionPage() {
                   <button
                     onClick={handleStart}
                     disabled={!poseReady || !token}
-                    className="btn-primary session-control-button inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+                    className="btn-primary session-control-button button-inline"
                   >
-                    <Play className="w-4 h-4" />
+                    <Play className="icon-sm" />
                     Start Session
                   </button>
                 ) : (
                   <button
                     onClick={handleEnd}
                     disabled={isGeneratingReport}
-                    className="btn-danger session-control-button inline-flex items-center gap-2 disabled:opacity-60"
+                    className="btn-danger session-control-button button-inline"
                   >
                     {isGeneratingReport ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="icon-sm spin" />
                         Generating Report...
                       </>
                     ) : (
                       <>
-                        <Square className="w-4 h-4" />
+                        <Square className="icon-sm" />
                         End Session
                       </>
                     )}
@@ -127,7 +129,7 @@ export default function SessionPage() {
             </div>
           </div>
 
-          <aside className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
+          <aside className="fade-up fade-up-2" style={{ animationDelay: '0.2s' }}>
             <FeedbackPanel />
           </aside>
         </div>
