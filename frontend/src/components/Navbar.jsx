@@ -94,6 +94,10 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
+  if (pathname === '/' || pathname === '/login') {
+    return null;
+  }
+
   const handleLogout = async () => {
     await signOut(auth);
     navigate('/');

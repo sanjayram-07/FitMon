@@ -3,20 +3,8 @@ import jsPDF from 'jspdf';
 import { useLocation, Link } from 'react-router-dom';
 import {
   ArrowDownToLine,
-  ArrowLeft,
   Trophy,
-  Target,
-  AlertTriangle,
-  TrendingUp,
-  Clock,
   Repeat,
-  CheckCircle2,
-  XCircle,
-  Shield,
-  Lightbulb,
-  ThumbsUp,
-  Activity,
-  BarChart3,
 } from 'lucide-react';
 
 const CHART_WIDTH = 760;
@@ -52,6 +40,38 @@ export default function ReportPage() {
     const s = seconds % 60;
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   };
+
+  const calculateInjuryRisk = (postureScoreValue, averageFsrValue, repCountValue) => {
+    const postureRisk = Math.max(0, 100 - postureScoreValue);
+
+    const fsrRisk = averageFsrValue < 20
+      ? (20 - averageFsrValue) * 2
+      : averageFsrValue > 80
+        ? (averageFsrValue - 80) * 1.5
+        : 0;
+
+    const repRisk = repCountValue > 30 ? Math.min((repCountValue - 30) * 1.5, 30) : 0;
+
+    const totalRisk = (postureRisk * 0.5) + (fsrRisk * 0.3) + (repRisk * 0.2);
+
+    if (totalRisk < 25) return { level: 'Low', score: Math.round(totalRisk), color: 'success' };
+    if (totalRisk < 55) return { level: 'Moderate', score: Math.round(totalRisk), color: 'warning' };
+    return { level: 'High', score: Math.round(totalRisk), color: 'danger' };
+  };
+
+  const averageFsrValue = Number.isFinite(report.avgFsr)
+    ? report.avgFsr
+    : reps.length
+      ? reps.reduce((sum, rep) => sum + (rep.avgFsr ?? 0), 0) / reps.length
+      : 0;
+  const postureScoreValue = report.avgPostureScore ?? 0;
+  const repCountValue = report.totalReps ?? 0;
+  const injuryRisk = calculateInjuryRisk(postureScoreValue, averageFsrValue, repCountValue);
+  const riskBadgeClass = injuryRisk.color === 'success'
+    ? 'badge-success'
+    : injuryRisk.color === 'warning'
+      ? 'badge-warning'
+      : 'badge-danger';
 
   async function handleDownloadPdf() {
     if (isDownloadingPdf) {
@@ -111,7 +131,7 @@ export default function ReportPage() {
         ['Accuracy', `${report.accuracy}%`],
         ['Duration', formatDuration(report.duration)],
         ['Posture', String(report.avgPostureScore)],
-        ['Injury Risk', `${report.injuryRiskScore}%`],
+        ['Injury Risk', `${injuryRisk.score}%`],
       ];
 
       let metricX = margin;
@@ -140,7 +160,7 @@ export default function ReportPage() {
 
       ensureSpace(35);
       addSectionTitle('Risk Summary');
-      addBodyText(`Injury risk score: ${report.injuryRiskScore}%. Incorrect reps: ${report.incorrectReps}. Ineffective reps: ${report.ineffectiveReps}.`);
+      addBodyText(`Injury risk score: ${injuryRisk.score}%. Incorrect reps: ${report.incorrectReps}. Ineffective reps: ${report.ineffectiveReps}.`);
 
       if (insights.improvements?.length) {
         ensureSpace(30);
@@ -177,35 +197,24 @@ export default function ReportPage() {
 
   return (
     <div className="page report-page">
-      <div className="container container-narrow">
-        <div className="report-hero fade-up">
-          <div className="report-hero-main">
-            <Link to="/session" className="report-back button-inline">
-              <ArrowLeft className="icon-md" />
-            </Link>
-            <div>
-              <p className="report-kicker">Post-Session Intelligence</p>
-              <h1 className="report-title">Your curl report is ready</h1>
-              <p className="report-meta">
-                {new Date(report.startedAt).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </p>
-            </div>
-          </div>
+      <div className="container container-narrow" style={{ maxWidth: '800px', padding: '32px 24px' }}>
+        <div className={`${riskBadgeClass}`} style={{ fontSize: '0.85rem', padding: '8px 18px' }}>
+          {injuryRisk.level} Risk · {injuryRisk.score}%
+        </div>
 
-          <button
-            type="button"
-            onClick={handleDownloadPdf}
-            disabled={isDownloadingPdf}
-            className="btn-primary button-inline"
-          >
-            <ArrowDownToLine className="icon-sm" />
-            {isDownloadingPdf ? 'Generating PDF...' : 'Download PDF Report'}
-          </button>
+        <div style={{ marginTop: '24px', marginBottom: '32px' }}>
+          <p className="section-label">Session Report</p>
+          <h1 className="page-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)' }}>
+            Your workout report
+          </h1>
+          <p className="text-secondary" style={{ marginTop: '8px' }}>
+            {new Date(report.startedAt).toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </p>
         </div>
 
         {pdfError ? (
@@ -217,174 +226,145 @@ export default function ReportPage() {
           </div>
         ) : null}
 
-        <div className="report-stack">
-          <div className="card report-summary fade-up" style={{ animationDelay: '0.1s' }}>
-            <div className="report-summary-row">
-              <div className={`grade-badge grade-${grade}`}>{grade}</div>
-              <div>
-                <h2 className="section-title">Overall Performance</h2>
-                <p className="text-secondary">
-                  {insights.summary || `You completed ${report.totalReps} reps with ${report.accuracy}% accuracy.`}
-                </p>
-              </div>
-            </div>
+        <section>
+          <h2 className="report-section-title">Overview</h2>
+          <div style={{ display: 'grid', gap: '12px', marginTop: '16px' }}>
+            <MetricRow label="Total Reps" value={report.totalReps} />
+            <MetricRow label="Accuracy" value={`${report.accuracy}%`} />
+            <MetricRow label="Duration" value={formatDuration(report.duration)} />
+            <MetricRow label="Posture Score" value={report.avgPostureScore} />
+            <MetricRow label="Pressure" value={Math.round(averageFsrValue || 0)} />
+            <MetricRow label="Injury Risk" value={`${injuryRisk.score}% (${injuryRisk.level})`} />
           </div>
+        </section>
 
-          <div className="report-metrics-grid fade-up" style={{ animationDelay: '0.2s' }}>
-            <MetricCard icon={Repeat} label="Total Reps" value={report.totalReps} />
-            <MetricCard icon={Target} label="Accuracy" value={`${report.accuracy}%`} color={report.accuracy >= 70 ? 'text-success' : 'text-warning'} />
-            <MetricCard icon={Clock} label="Duration" value={formatDuration(report.duration)} />
-            <MetricCard icon={TrendingUp} label="Posture Score" value={report.avgPostureScore} color={report.avgPostureScore >= 70 ? 'text-success' : 'text-warning'} />
-          </div>
+        <section style={{ marginTop: '32px' }}>
+          <h2 className="report-section-title">Summary</h2>
+          <p className="text-secondary" style={{ marginTop: '16px' }}>
+            {insights.summary || `You completed ${report.totalReps} reps with ${report.accuracy}% accuracy.`}
+          </p>
+        </section>
 
-          <div className="report-split-grid fade-up" style={{ animationDelay: '0.3s' }}>
-            <div className="card">
-              <div className="section-header">
-                <BarChart3 className="icon-md text-accent" />
-                <h3 className="section-title section-title-sm">Rep Performance Graph</h3>
-              </div>
-              <RepPerformanceChart reps={reps} />
+        {insights.improvements?.length ? (
+          <section style={{ marginTop: '32px' }}>
+            <h2 className="report-section-title">Improvements</h2>
+            <ul className="report-list" style={{ marginTop: '16px' }}>
+              {insights.improvements.map((item) => (
+                <li key={item} className="report-list-item">
+                  <span className="text-warning">{'->'}</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {insights.positiveFeedback?.length ? (
+          <section style={{ marginTop: '32px' }}>
+            <h2 className="report-section-title">What Went Well</h2>
+            <ul className="report-list" style={{ marginTop: '16px' }}>
+              {insights.positiveFeedback.map((item) => (
+                <li key={item} className="report-list-item">
+                  <span className="text-success">OK</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {(insights.warnings?.length || insights.injuryExplanation) ? (
+          <section style={{ marginTop: '32px' }}>
+            <h2 className="report-section-title">Caution</h2>
+            <div className="report-warning-body" style={{ marginTop: '16px' }}>
+              {insights.warnings?.map((warning) => <p key={warning}>Alert: {warning}</p>)}
+              {insights.injuryExplanation ? <p>{insights.injuryExplanation}</p> : null}
             </div>
+          </section>
+        ) : null}
 
-            <div className="card">
-              <div className="section-header">
-                <Activity className="icon-md text-warning" />
-                <h3 className="section-title section-title-sm">Injury Risk Trend</h3>
-              </div>
-              <RiskGauge riskScore={report.injuryRiskScore} />
-              <div className="report-mini-grid">
-                <MiniRiskMetric label="Correct" value={report.correctReps} tone="text-success" />
-                <MiniRiskMetric label="Incorrect" value={report.incorrectReps} tone="text-danger" />
-                <MiniRiskMetric label="Ineffective" value={report.ineffectiveReps} tone="text-warning" />
-              </div>
-            </div>
-          </div>
-
-          <div className="report-stats-grid fade-up" style={{ animationDelay: '0.35s' }}>
-            <div className="card report-stat">
-              <CheckCircle2 className="icon-lg text-success" />
-              <div>
-                <p className="stat-value-sm">{report.correctReps}</p>
-                <p className="text-muted">Correct Reps</p>
-              </div>
-            </div>
-            <div className="card report-stat">
-              <XCircle className="icon-lg text-danger" />
-              <div>
-                <p className="stat-value-sm">{report.incorrectReps}</p>
-                <p className="text-muted">Incorrect Reps</p>
-              </div>
-            </div>
-            <div className="card report-stat">
-              <Shield className="icon-lg text-warning" />
-              <div>
-                <p className="stat-value-sm">{report.injuryRiskScore}%</p>
-                <p className="text-muted">Injury Risk</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="report-panels fade-up" style={{ animationDelay: '0.4s' }}>
-            {insights.improvements?.length ? (
-              <div className="card">
-                <div className="section-header">
-                  <Lightbulb className="icon-md text-warning" />
-                  <h3 className="section-title section-title-sm">Improvements</h3>
-                </div>
-                <ul className="report-list">
-                  {insights.improvements.map((item) => (
-                    <li key={item} className="report-list-item">
-                      <span className="text-warning">{'->'}</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            {insights.positiveFeedback?.length ? (
-              <div className="card">
-                <div className="section-header">
-                  <ThumbsUp className="icon-md text-success" />
-                  <h3 className="section-title section-title-sm">What You Did Well</h3>
-                </div>
-                <ul className="report-list">
-                  {insights.positiveFeedback.map((item) => (
-                    <li key={item} className="report-list-item">
-                      <span className="text-success">OK</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-
-          {(insights.warnings?.length || insights.injuryExplanation) ? (
-            <div className="card report-warning fade-up" style={{ animationDelay: '0.5s' }}>
-              <div className="section-header">
-                <AlertTriangle className="icon-md text-danger" />
-                <h3 className="section-title section-title-sm">Caution</h3>
-              </div>
-              <div className="report-warning-body">
-                {insights.warnings?.map((warning) => <p key={warning}>Alert: {warning}</p>)}
-                {insights.injuryExplanation ? <p>{insights.injuryExplanation}</p> : null}
-              </div>
-            </div>
-          ) : null}
-
-          {reps.length ? (
-            <div className="card fade-up" style={{ animationDelay: '0.6s' }}>
-              <h3 className="section-title section-title-sm">Rep History</h3>
-              <div className="report-table-wrap">
-                <table className="report-table">
-                  <thead>
-                    <tr>
-                      <th>Rep</th>
-                      <th>Form Score</th>
-                      <th>FSR Score</th>
-                      <th>Avg FSR</th>
-                      <th>ROM</th>
-                      <th>Fusion</th>
-                      <th>Status</th>
+        {reps.length ? (
+          <section style={{ marginTop: '32px' }}>
+            <h2 className="report-section-title">Rep History</h2>
+            <div className="report-table-wrap" style={{ marginTop: '16px' }}>
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>Rep</th>
+                    <th>Form Score</th>
+                    <th>Pressure Score</th>
+                    <th>Avg Pressure</th>
+                    <th>Range</th>
+                    <th>Consistency</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reps.map((rep) => (
+                    <tr key={rep.repNumber}>
+                      <td className="table-strong">#{rep.repNumber}</td>
+                      <td>
+                        <span className={`table-strong ${rep.formScore >= 60 ? 'text-success' : 'text-danger'}`}>{rep.formScore}</span>
+                      </td>
+                      <td className="text-secondary">{rep.fsrScore ?? '-'}</td>
+                      <td className="text-secondary">{rep.avgFsr ?? '-'}</td>
+                      <td className="text-secondary">
+                        {rep.minAngle !== null && rep.maxAngle !== null ? `${Math.round(rep.minAngle)}° - ${Math.round(rep.maxAngle)}°` : '-'}
+                      </td>
+                      <td className="text-secondary">{rep.fusionScore ?? '-'}</td>
+                      <td>
+                        {rep.correct ? (
+                          <span className="text-success">Good</span>
+                        ) : (
+                          <span className="text-danger">Needs Work</span>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {reps.map((rep) => (
-                      <tr key={rep.repNumber}>
-                        <td className="table-strong">#{rep.repNumber}</td>
-                        <td>
-                          <span className={`table-strong ${rep.formScore >= 60 ? 'text-success' : 'text-danger'}`}>{rep.formScore}</span>
-                        </td>
-                        <td className="text-secondary">{rep.fsrScore ?? '-'}</td>
-                        <td className="text-secondary">{rep.avgFsr ?? '-'}</td>
-                        <td className="text-secondary">
-                          {rep.minAngle !== null && rep.maxAngle !== null ? `${Math.round(rep.minAngle)}° - ${Math.round(rep.maxAngle)}°` : '-'}
-                        </td>
-                        <td className="text-secondary">{rep.fusionScore ?? '-'}</td>
-                        <td>
-                          {rep.correct ? (
-                            <span className="text-success">Good</span>
-                          ) : (
-                            <span className="text-danger">Needs Work</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ) : null}
+          </section>
+        ) : null}
+
+        <div className="report-footer" style={{ marginTop: '40px' }}>
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            className="btn-secondary button-inline"
+          >
+            <ArrowDownToLine className="icon-sm" />
+            {isDownloadingPdf ? 'Generating PDF...' : 'Download Report'}
+          </button>
         </div>
 
-        <div className="report-footer fade-up" style={{ animationDelay: '0.7s' }}>
+        <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
           <Link to="/session" className="btn-primary button-inline">
             <Repeat className="icon-sm" />
             Start New Session
           </Link>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MetricRow({ label, value }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '12px 0',
+        borderBottom: '1px solid var(--border)',
+      }}
+    >
+      <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{label}</span>
+      <span style={{ color: 'var(--text)', fontFamily: 'var(--font-display)', fontWeight: 600 }}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -447,8 +427,8 @@ function RepPerformanceChart({ reps }) {
 
       <div className="report-chart-legend">
         <LegendDot color="var(--accent)" label="Form Score" />
-        <LegendDot color="var(--blue)" label="FSR Score" />
-        <LegendDot color="var(--warning)" label="Fusion Score" />
+        <LegendDot color="var(--blue)" label="Pressure Score" />
+        <LegendDot color="var(--warning)" label="Consistency Score" />
       </div>
     </div>
   );
@@ -536,10 +516,10 @@ function drawRepTable(pdf, reps, x, startY, width) {
   const columns = [
     ['Rep', 14],
     ['Form', 22],
-    ['FSR', 18],
+    ['Press', 18],
     ['Avg', 20],
-    ['ROM', 30],
-    ['Fusion', 24],
+    ['Range', 30],
+    ['Consist', 24],
     ['Status', 22],
   ];
 

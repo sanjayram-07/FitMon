@@ -56,7 +56,7 @@ export default function WebcamFeed() {
 
   const handleUserMediaError = useCallback((error) => {
     const message = error?.name === 'NotReadableError'
-      ? 'Camera is busy. Close the separate Python/OpenCV window and refresh this page.'
+      ? 'Camera is busy. Close other apps using the camera and refresh this page.'
       : 'Camera access failed. Allow browser camera permission and try again.';
 
     setPoseReady(false);
@@ -151,7 +151,7 @@ export default function WebcamFeed() {
       <div className="camera-hud">
         <div className="camera-chip">
           <Camera className="icon-sm" />
-          <span>Browser CV Feed</span>
+          <span>Live Camera</span>
         </div>
 
         {sessionActive && (
@@ -166,17 +166,17 @@ export default function WebcamFeed() {
         {cameraError ? (
           <>
             <CircleAlert className="icon-sm" />
-            <span>Web mode uses only the browser camera. Do not run `cv/main.py` at the same time.</span>
+            <span>Camera access is unavailable. Close other apps using the camera and refresh.</span>
           </>
         ) : sessionActive ? (
           <>
             <Activity className="icon-sm" />
-            <span>Raise and lower the same arm fully to count reps in the page.</span>
+            <span>Move smoothly and complete each rep through the full range.</span>
           </>
         ) : (
           <>
             <CircleAlert className="icon-sm" />
-            <span>Allow camera access, then press Start Session to begin tracking.</span>
+            <span>Allow camera access, then press Start Session to begin.</span>
           </>
         )}
       </div>
@@ -191,7 +191,7 @@ export default function WebcamFeed() {
           <strong>{angle}&deg;</strong>
         </div>
         <div className="camera-stat">
-          <span className="camera-label">Stage</span>
+          <span className="camera-label">Phase</span>
           <strong>{repState}</strong>
         </div>
         <div className="camera-stat">

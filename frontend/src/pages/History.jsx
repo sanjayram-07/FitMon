@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 import { firebaseApp } from '../firebase/config';
 import useAuthStore from '../store/useAuthStore';
-import AppNavbar from '../components/AppNavbar';
 import '../index.css';
 
 const db = firebaseApp ? getFirestore(firebaseApp) : null;
@@ -75,13 +74,12 @@ export default function History() {
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '80px' }}>
-      <AppNavbar />
 
       <div className="container" style={{ paddingTop: '96px', maxWidth: '960px', margin: '0 auto' }}>
 
         {/* Page header */}
         <div style={{ marginBottom: '32px' }}>
-          <p className="section-label">Your Sessions</p>
+          <p className="section-label">History</p>
           <h1 className="page-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.4rem)' }}>Session History</h1>
         </div>
 
@@ -102,7 +100,7 @@ export default function History() {
         {/* Content */}
         {loading ? (
           <div style={{ color: 'var(--muted)', textAlign: 'center', padding: '64px' }}>
-            Loading your sessions…
+            Loading your sessions...
           </div>
         ) : filteredSessions.length > 0 ? (
           <div style={{
@@ -164,11 +162,8 @@ export default function History() {
           </div>
         ) : (
           <div className="card" style={{ textAlign: 'center', padding: '64px 32px' }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--text)', marginBottom: '12px' }}>
-              No sessions yet
-            </h3>
             <p style={{ color: 'var(--muted)', marginBottom: '24px' }}>
-              Complete your first session to see your history here.
+              No sessions yet. Start your first session to see your history here.
             </p>
             <Link to="/session" className="btn-primary">Start a Session</Link>
           </div>
