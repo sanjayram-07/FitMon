@@ -31,6 +31,9 @@ npm run dev
 ```
 *Dashboard runs on: http://localhost:5173*
 
+Web mode only needs `backend` + `frontend`.
+Do not run the Python CV window while using the website, because both apps compete for the same webcam.
+
 ### 3. Python CV Engine Setup
 ```bash
 cd cv
@@ -42,6 +45,8 @@ pip install -r requirements.txt
 # Run the CV engine
 python main.py
 ```
+Use this only for standalone desktop CV testing or dedicated camera/IoT setups.
+
 **CV Controls:**
 - `S`: Start Session
 - `E`: End Session

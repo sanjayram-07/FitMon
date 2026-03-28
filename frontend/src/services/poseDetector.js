@@ -3,18 +3,13 @@ import { PoseLandmarker, FilesetResolver, DrawingUtils } from '@mediapipe/tasks-
 let poseLandmarker = null;
 let isInitializing = false;
 
-/**
- * Initialize the MediaPipe Pose Landmarker.
- */
 export async function initializePoseDetector(onReady) {
   if (poseLandmarker || isInitializing) return poseLandmarker;
   isInitializing = true;
 
   try {
-    console.log('[Pose] Initializing MediaPipe Pose Landmarker...');
-
     const vision = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
     );
 
     poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
@@ -25,12 +20,11 @@ export async function initializePoseDetector(onReady) {
       },
       runningMode: 'VIDEO',
       numPoses: 1,
-      minPoseDetectionConfidence: 0.5,
-      minPosePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
+      minPoseDetectionConfidence: 0.4,
+      minPosePresenceConfidence: 0.4,
+      minTrackingConfidence: 0.4,
     });
 
-    console.log('[Pose] MediaPipe initialized successfully');
     isInitializing = false;
     if (onReady) onReady();
     return poseLandmarker;
@@ -41,29 +35,21 @@ export async function initializePoseDetector(onReady) {
   }
 }
 
-/**
- * Detect pose in a video frame.
- * Returns landmarks array or null.
- */
 export function detectPose(videoElement, timestamp) {
   if (!poseLandmarker || !videoElement) return null;
 
   try {
     const result = poseLandmarker.detectForVideo(videoElement, timestamp);
-
-    if (result.landmarks && result.landmarks.length > 0) {
-      return result.landmarks[0]; // First person
+    if (result.landmarks?.length) {
+      return result.landmarks[0];
     }
+
     return null;
-  } catch (error) {
-    // Silently handle frame processing errors
+  } catch {
     return null;
   }
 }
 
-/**
- * Draw landmarks on a canvas overlay.
- */
 export function drawLandmarks(canvasCtx, landmarks, canvasWidth, canvasHeight) {
   if (!landmarks || !canvasCtx) return;
 
@@ -71,38 +57,31 @@ export function drawLandmarks(canvasCtx, landmarks, canvasWidth, canvasHeight) {
 
   const drawingUtils = new DrawingUtils(canvasCtx);
 
-  // Draw connections
   drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {
-    color: '#6c5ce780',
-    lineWidth: 2,
+    color: '#f7c56b88',
+    lineWidth: 3,
   });
 
-  // Draw landmarks
   drawingUtils.drawLandmarks(landmarks, {
-    color: '#a29bfe',
+    color: '#fff6df',
     lineWidth: 1,
-    radius: 3,
+    radius: 3.5,
   });
 
-  // Highlight arm joints (shoulder, elbow, wrist)
-  const armIndices = [11, 13, 15, 12, 14, 16];
-  armIndices.forEach((idx) => {
-    const lm = landmarks[idx];
-    if (lm && lm.visibility > 0.5) {
+  [11, 13, 15, 12, 14, 16].forEach((idx) => {
+    const landmark = landmarks[idx];
+    if (landmark && landmark.visibility > 0.5) {
       canvasCtx.beginPath();
-      canvasCtx.arc(lm.x * canvasWidth, lm.y * canvasHeight, 6, 0, 2 * Math.PI);
-      canvasCtx.fillStyle = '#6c5ce7';
+      canvasCtx.arc(landmark.x * canvasWidth, landmark.y * canvasHeight, 6, 0, 2 * Math.PI);
+      canvasCtx.fillStyle = '#ff7b54';
       canvasCtx.fill();
-      canvasCtx.strokeStyle = '#ffffff40';
+      canvasCtx.strokeStyle = '#ffffff55';
       canvasCtx.lineWidth = 2;
       canvasCtx.stroke();
     }
   });
 }
 
-/**
- * Cleanup pose landmarker.
- */
 export function closePoseDetector() {
   if (poseLandmarker) {
     poseLandmarker.close();

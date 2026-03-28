@@ -1,23 +1,23 @@
-/**
- * Bicep Curl CV Logic (Client-Side JS)
- * This logic handles the angle computation and rep counting state machine.
- */
-
-export const CURL_UP_THRESHOLD = 70;
-export const CURL_DOWN_THRESHOLD = 140;
+export const CURL_UP_THRESHOLD = 68;
+export const CURL_DOWN_THRESHOLD = 138;
+export const MIN_ROM_THRESHOLD = 78;
+export const TARGET_ROM_THRESHOLD = 108;
+export const MAX_CONTROLLED_VELOCITY = 210;
+export const MIN_EXTENSION_ANGLE = 142;
+export const MIN_STABLE_FRAMES = 4;
 
 export function calculateAngle(a, b, c) {
-  const ba = { x: a.x - b.x, y: a.y - b.y, z: (a.z || 0) - (b.z || 0) };
-  const bc = { x: c.x - b.x, y: c.y - b.y, z: (c.z || 0) - (b.z || 0) };
+  const radians =
+    Math.atan2(c.y - b.y, c.x - b.x) -
+    Math.atan2(a.y - b.y, a.x - b.x);
 
-  const dot = ba.x * bc.x + ba.y * bc.y + ba.z * bc.z;
-  const magBA = Math.sqrt(ba.x ** 2 + ba.y ** 2 + ba.z ** 2);
-  const magBC = Math.sqrt(bc.x ** 2 + bc.y ** 2 + bc.z ** 2);
+  let angle = Math.abs((radians * 180) / Math.PI);
 
-  if (magBA === 0 || magBC === 0) return 0;
+  if (angle > 180) {
+    angle = 360 - angle;
+  }
 
-  const cosAngle = Math.max(-1, Math.min(1, dot / (magBA * magBC)));
-  return (Math.acos(cosAngle) * 180) / Math.PI;
+  return angle;
 }
 
 export function extractArmJoints(landmarks) {
@@ -38,24 +38,14 @@ export function extractArmJoints(landmarks) {
   const leftVis = (leftArm.shoulder.visibility + leftArm.elbow.visibility + leftArm.wrist.visibility) / 3;
   const rightVis = (rightArm.shoulder.visibility + rightArm.elbow.visibility + rightArm.wrist.visibility) / 3;
 
-  return leftVis > rightVis 
-    ? { ...leftArm, side: 'left', visibility: leftVis } 
+  return leftVis > rightVis
+    ? { ...leftArm, side: 'left', visibility: leftVis }
     : { ...rightArm, side: 'right', visibility: rightVis };
 }
 
-/**
- * Main rep counting logic moved from backend.
- */
 export class BicepCurlEngine {
   constructor() {
-    this.state = 'IDLE';
-    this.totalReps = 0;
-    this.correctReps = 0;
-    this.minAngle = 180;
-    this.maxAngle = 0;
-    this.history = []; // velocity, etc.
-    this.prevAngle = null;
-    this.prevTime = null;
+    this.reset();
   }
 
   processFrame(landmarks, timestamp) {
@@ -65,52 +55,119 @@ export class BicepCurlEngine {
     }
 
     const angle = calculateAngle(joints.shoulder, joints.elbow, joints.wrist);
-    
-    // Simple velocity calculation
+
     let velocity = 0;
     if (this.prevAngle !== null && this.prevTime !== null) {
       const dt = (timestamp - this.prevTime) / 1000;
-      if (dt > 0) velocity = Math.abs(angle - this.prevAngle) / dt;
+      if (dt > 0) {
+        velocity = Math.abs(angle - this.prevAngle) / dt;
+      }
+    }
+
+    this.velocityHistory.push(velocity);
+    if (this.velocityHistory.length > 20) {
+      this.velocityHistory.shift();
     }
 
     this.minAngle = Math.min(this.minAngle, angle);
     this.maxAngle = Math.max(this.maxAngle, angle);
+    this.frameCount += 1;
+
+    if (this.referenceElbowX === null) {
+      this.referenceElbowX = joints.elbow.x;
+    }
+
+    if (this.referenceShoulderY === null) {
+      this.referenceShoulderY = joints.shoulder.y;
+    }
+
+    if (angle > CURL_DOWN_THRESHOLD) {
+      this.stage = 'DOWN';
+    }
 
     let repCompleted = false;
     let repCorrect = false;
-    let feedback = [];
+    const feedback = [];
 
-    // State machine
-    if (this.state === 'IDLE' && angle < CURL_DOWN_THRESHOLD) {
-      this.state = 'CURLING';
-    } else if (this.state === 'CURLING') {
-      if (angle <= CURL_UP_THRESHOLD) {
-        this.state = 'PEAK';
-      } else if (angle > CURL_DOWN_THRESHOLD) {
-        this.state = 'IDLE';
-        feedback.push('Complete full curl range');
+    const elbowDrift = Math.abs(joints.elbow.x - this.referenceElbowX);
+    const shoulderDrift = Math.abs(joints.shoulder.y - this.referenceShoulderY);
+    const elbowStability = Math.max(0, 100 - elbowDrift * 720);
+    const shoulderControl = Math.max(0, 100 - shoulderDrift * 900);
+    const smoothnessSpread = this.velocityHistory.length
+      ? Math.max(...this.velocityHistory) - Math.min(...this.velocityHistory)
+      : 0;
+    const meanVelocity = this.velocityHistory.length
+      ? this.velocityHistory.reduce((sum, current) => sum + current, 0) / this.velocityHistory.length
+      : 0;
+    const smoothness = Math.max(0, 100 - Math.min(100, smoothnessSpread * 0.08));
+    const speedControl = Math.max(0, 100 - Math.max(0, meanVelocity - MAX_CONTROLLED_VELOCITY) * 0.35);
+    const postureScore = Math.round((elbowStability * 0.42) + (shoulderControl * 0.18) + (smoothness * 0.2) + (speedControl * 0.2));
+
+    if (angle < CURL_UP_THRESHOLD && this.stage === 'DOWN' && this.frameCount > MIN_STABLE_FRAMES) {
+      this.stage = 'UP';
+      repCompleted = true;
+      this.totalReps += 1;
+
+      const rom = this.maxAngle - this.minAngle;
+      const formScore = Math.round(
+        Math.min(
+          100,
+          (Math.min(rom, TARGET_ROM_THRESHOLD) / TARGET_ROM_THRESHOLD) * 35 +
+            (elbowStability * 0.28) +
+            (shoulderControl * 0.12) +
+            (smoothness * 0.12) +
+            (speedControl * 0.13),
+        ),
+      );
+
+      repCorrect = formScore >= 64;
+      if (repCorrect) {
+        this.correctReps += 1;
       }
-    } else if (this.state === 'PEAK') {
-      if (angle > CURL_UP_THRESHOLD + 20) {
-        this.state = 'EXTENDING';
-      }
-    } else if (this.state === 'EXTENDING') {
-      if (angle >= CURL_DOWN_THRESHOLD) {
-        this.state = 'IDLE';
-        repCompleted = true;
-        
-        // Quality check
-        const rom = this.maxAngle - this.minAngle;
-        const formScore = (rom / 120) * 100; // Simplified for client demo
-        repCorrect = formScore >= 60;
-        
-        this.totalReps++;
-        if (repCorrect) this.correctReps++;
-        
-        // Reset counters
-        this.minAngle = 180;
-        this.maxAngle = 0;
-      }
+
+      if (rom < MIN_ROM_THRESHOLD) feedback.push('Curl higher and lower fully to hit full range of motion.');
+      if (this.maxAngle < MIN_EXTENSION_ANGLE) feedback.push('Open the elbow more at the bottom before the next rep.');
+      if (elbowStability < 72) feedback.push('Keep your elbow pinned to your torso and avoid drifting forward.');
+      if (shoulderControl < 72) feedback.push('Relax the shoulder and stop shrugging during the curl.');
+      if (smoothness < 68 || speedControl < 68) feedback.push('Slow the rep down and control both lifting and lowering.');
+
+      const result = {
+        valid: true,
+        angle: Math.round(angle),
+        repState: this.stage,
+        repCompleted,
+        repCorrect,
+        repCount: this.totalReps,
+        correctReps: this.correctReps,
+        feedback,
+        postureScore,
+        formScore,
+        elbowStability: Math.round(elbowStability),
+        smoothness: Math.round(smoothness),
+        speedControl: Math.round(speedControl),
+        shoulderControl: Math.round(shoulderControl),
+        minAngle: Math.round(this.minAngle),
+        maxAngle: Math.round(this.maxAngle),
+        armSide: joints.side,
+      };
+
+      this.minAngle = 180;
+      this.maxAngle = 0;
+      this.referenceElbowX = joints.elbow.x;
+      this.referenceShoulderY = joints.shoulder.y;
+      this.prevAngle = angle;
+      this.prevTime = timestamp;
+
+      return result;
+    }
+
+    if (this.stage === 'DOWN' && this.frameCount <= MIN_STABLE_FRAMES) {
+      feedback.push('Hold your start position steady for a moment before the first rep.');
+    } else {
+      if (elbowStability < 68) feedback.push('Keep elbow steady and close to your side.');
+      if (shoulderControl < 68) feedback.push('Avoid lifting the shoulder to finish the curl.');
+      if (speedControl < 68) feedback.push('Reduce momentum and control the tempo.');
+      if (angle < 82 && this.maxAngle - this.minAngle < MIN_ROM_THRESHOLD) feedback.push('Squeeze higher at the top to complete the rep.');
     }
 
     this.prevAngle = angle;
@@ -119,22 +176,34 @@ export class BicepCurlEngine {
     return {
       valid: true,
       angle: Math.round(angle),
-      repState: this.state,
+      repState: this.stage || 'READY',
       repCompleted,
       repCorrect,
       repCount: this.totalReps,
       feedback,
-      postureScore: 100, // Client side hardcodes high posture for now
+      postureScore,
+      formScore: Math.round((elbowStability * 0.32) + (shoulderControl * 0.18) + (smoothness * 0.2) + (speedControl * 0.3)),
+      elbowStability: Math.round(elbowStability),
+      smoothness: Math.round(smoothness),
+      speedControl: Math.round(speedControl),
+      shoulderControl: Math.round(shoulderControl),
+      minAngle: Math.round(this.minAngle),
+      maxAngle: Math.round(this.maxAngle),
+      armSide: joints.side,
     };
   }
 
   reset() {
-    this.state = 'IDLE';
+    this.stage = null;
     this.totalReps = 0;
     this.correctReps = 0;
     this.minAngle = 180;
     this.maxAngle = 0;
+    this.velocityHistory = [];
     this.prevAngle = null;
     this.prevTime = null;
+    this.referenceElbowX = null;
+    this.referenceShoulderY = null;
+    this.frameCount = 0;
   }
 }

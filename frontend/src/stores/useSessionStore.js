@@ -1,12 +1,10 @@
 import { create } from 'zustand';
 
 const useSessionStore = create((set, get) => ({
-  // Connection
   isConnected: false,
+  socketError: '',
   sessionId: null,
   sessionActive: false,
-
-  // Real-time feedback
   repCount: 0,
   angle: 0,
   repState: 'IDLE',
@@ -16,55 +14,73 @@ const useSessionStore = create((set, get) => ({
   smoothness: 100,
   cvScore: 0,
   fsrScore: 0,
+  averageFsr: 0,
   engagementStatus: 'normal',
   feedbackMessages: [],
-
-  // Session report
   report: null,
+  lastCompletedReport: null,
   isGeneratingReport: false,
-
-  // MediaPipe
   poseReady: false,
-
-  // Actions
-  setConnected: (connected) => set({ isConnected: connected }),
-  setSessionId: (id) => set({ sessionId: id }),
-  setSessionActive: (active) => set({ sessionActive: active }),
-  setPoseReady: (ready) => set({ poseReady: ready }),
-
+  setConnected: (isConnected) => set({ isConnected }),
+  setSocketError: (socketError) => set({ socketError }),
+  setSessionId: (sessionId) => set({ sessionId, socketError: '' }),
+  setSessionActive: (sessionActive) => set({ sessionActive }),
+  setPoseReady: (poseReady) => set({ poseReady }),
+  setGeneratingReport: (isGeneratingReport) => set({ isGeneratingReport }),
+  resetLiveFeedback: () =>
+    set({
+      repCount: 0,
+      angle: 0,
+      repState: 'IDLE',
+      postureScore: 0,
+      formScore: 0,
+      elbowStability: 100,
+      smoothness: 100,
+      cvScore: 0,
+      fsrScore: 0,
+      averageFsr: 0,
+      engagementStatus: 'normal',
+      feedbackMessages: [],
+    }),
+  setReport: (report) =>
+    set({
+      report,
+      lastCompletedReport: report,
+      isGeneratingReport: false,
+      sessionActive: false,
+    }),
   updateFeedback: (data) => {
+    const current = get();
     const updates = {
-      repCount: data.repCount ?? get().repCount,
-      angle: data.angle ?? get().angle,
-      repState: data.repState ?? get().repState,
-      postureScore: data.postureScore ?? get().postureScore,
-      formScore: data.formScore ?? get().formScore,
-      elbowStability: data.elbowStability ?? get().elbowStability,
-      smoothness: data.smoothness ?? get().smoothness,
-      cvScore: data.cvScore ?? get().cvScore,
-      fsrScore: data.fsrScore ?? get().fsrScore,
-      engagementStatus: data.engagementStatus ?? get().engagementStatus,
+      repCount: data.repCount ?? current.repCount,
+      angle: data.angle ?? current.angle,
+      repState: data.repState ?? current.repState,
+      postureScore: data.postureScore ?? current.postureScore,
+      formScore: data.formScore ?? current.formScore,
+      elbowStability: data.elbowStability ?? current.elbowStability,
+      smoothness: data.smoothness ?? current.smoothness,
+      cvScore: data.cvScore ?? current.cvScore,
+      fsrScore: data.fsrScore ?? current.fsrScore,
+      averageFsr: data.averageFsr ?? current.averageFsr,
+      engagementStatus: data.engagementStatus ?? current.engagementStatus,
     };
 
-    // Keep last 5 feedback messages
-    if (data.feedback && data.feedback.length > 0) {
-      const current = get().feedbackMessages;
-      const newMessages = data.feedback.map((msg) => ({
-        id: Date.now() + Math.random(),
-        text: msg,
-        timestamp: Date.now(),
+    if (data.feedback?.length) {
+      const timestamp = Date.now();
+      const incoming = data.feedback.map((message, index) => ({
+        id: `${timestamp}-${index}`,
+        text: message,
+        timestamp,
       }));
-      updates.feedbackMessages = [...newMessages, ...current].slice(0, 5);
+
+      updates.feedbackMessages = [...incoming, ...current.feedbackMessages].slice(0, 6);
     }
 
     set(updates);
   },
-
-  setReport: (report) => set({ report, isGeneratingReport: false }),
-  setGeneratingReport: (val) => set({ isGeneratingReport: val }),
-
   resetSession: () =>
     set({
+      socketError: '',
       sessionId: null,
       sessionActive: false,
       repCount: 0,
@@ -76,6 +92,7 @@ const useSessionStore = create((set, get) => ({
       smoothness: 100,
       cvScore: 0,
       fsrScore: 0,
+      averageFsr: 0,
       engagementStatus: 'normal',
       feedbackMessages: [],
       report: null,

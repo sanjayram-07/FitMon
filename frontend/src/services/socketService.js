@@ -6,52 +6,68 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
 class SocketService {
   constructor() {
     this.socket = null;
+    this.listenersBound = false;
   }
 
-  connect() {
-    if (this.socket?.connected) return;
+  connect(token) {
+    if (!token) {
+      return;
+    }
 
-    this.socket = io(SOCKET_URL, {
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+    if (!this.socket) {
+      this.socket = io(SOCKET_URL, {
+        autoConnect: false,
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+    }
 
+    this.socket.auth = { token };
+
+    if (!this.listenersBound) {
+      this.bindListeners();
+      this.listenersBound = true;
+    }
+
+    if (!this.socket.connected) {
+      this.socket.connect();
+    }
+  }
+
+  bindListeners() {
     this.socket.on('connect', () => {
-      console.log('[Socket] Connected:', this.socket.id);
       useSessionStore.getState().setConnected(true);
+      useSessionStore.getState().setSocketError('');
     });
 
     this.socket.on('disconnect', () => {
-      console.log('[Socket] Disconnected');
       useSessionStore.getState().setConnected(false);
     });
 
-    this.socket.on('session_started', (data) => {
-      console.log('[Socket] Session started:', data.sessionId);
-      useSessionStore.getState().setSessionId(data.sessionId);
+    this.socket.on('session_started', ({ sessionId }) => {
+      useSessionStore.getState().setSessionId(sessionId);
       useSessionStore.getState().setSessionActive(true);
     });
 
-    this.socket.on('feedback', (data) => {
-      if (data.type === 'update') {
-        useSessionStore.getState().updateFeedback(data);
-      } else if (data.type === 'warning') {
+    this.socket.on('feedback', (payload) => {
+      if (payload.type === 'warning') {
         useSessionStore.getState().updateFeedback({
-          feedback: [data.message],
-          repCount: data.repCount,
+          feedback: [payload.message],
         });
+        return;
       }
+
+      useSessionStore.getState().updateFeedback(payload);
     });
 
     this.socket.on('session_summary', (report) => {
-      console.log('[Socket] Session summary received');
       useSessionStore.getState().setReport(report);
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('[Socket] Connection error:', error.message);
+      useSessionStore.getState().setSocketError(error.message);
     });
   }
 
@@ -59,31 +75,33 @@ class SocketService {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
+      this.listenersBound = false;
     }
   }
 
   startSession() {
-    if (!this.socket?.connected) {
-      console.warn('[Socket] Not connected');
-      return;
+    if (this.socket?.connected) {
+      this.socket.emit('start_session', {});
     }
-    this.socket.emit('start_session', {});
   }
 
   sendCVResults(results) {
-    if (!this.socket?.connected) return;
-    this.socket.emit('cv_results', results);
+    if (this.socket?.connected) {
+      this.socket.emit('cv_results', results);
+    }
   }
 
-  sendIoTData(value, timestamp) {
-    if (!this.socket?.connected) return;
-    this.socket.emit('iot_data', { value, timestamp: timestamp || Date.now() });
+  sendIoTData(value, timestamp = Date.now()) {
+    if (this.socket?.connected) {
+      this.socket.emit('iot_data', { value, timestamp });
+    }
   }
 
   endSession() {
-    if (!this.socket?.connected) return;
-    useSessionStore.getState().setGeneratingReport(true);
-    this.socket.emit('end_session', {});
+    if (this.socket?.connected) {
+      useSessionStore.getState().setGeneratingReport(true);
+      this.socket.emit('end_session', {});
+    }
   }
 }
 

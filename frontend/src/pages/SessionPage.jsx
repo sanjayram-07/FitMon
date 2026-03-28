@@ -1,46 +1,51 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Square, Loader2 } from 'lucide-react';
-import WebcamFeed from '../components/WebcamFeed';
+import { Loader2, Play, Square } from 'lucide-react';
+import BlurText from '../components/BlurText';
 import FeedbackPanel from '../components/FeedbackPanel';
+import ScrollFloat from '../components/ScrollFloat';
+import WebcamFeed from '../components/WebcamFeed';
 import socketService from '../services/socketService';
+import useAuthStore from '../store/useAuthStore';
 import useSessionStore from '../stores/useSessionStore';
 
 export default function SessionPage() {
   const navigate = useNavigate();
-  const isConnected = useSessionStore((s) => s.isConnected);
-  const sessionActive = useSessionStore((s) => s.sessionActive);
-  const poseReady = useSessionStore((s) => s.poseReady);
-  const report = useSessionStore((s) => s.report);
-  const isGeneratingReport = useSessionStore((s) => s.isGeneratingReport);
+  const token = useAuthStore((state) => state.token);
+  const isConnected = useSessionStore((state) => state.isConnected);
+  const sessionActive = useSessionStore((state) => state.sessionActive);
+  const poseReady = useSessionStore((state) => state.poseReady);
+  const report = useSessionStore((state) => state.report);
+  const isGeneratingReport = useSessionStore((state) => state.isGeneratingReport);
+  const socketError = useSessionStore((state) => state.socketError);
+  const resetSession = useSessionStore((state) => state.resetSession);
 
-  // Connect socket on mount
   useEffect(() => {
-    socketService.connect();
+    if (!token) {
+      return undefined;
+    }
+
+    socketService.connect(token);
 
     return () => {
-      // Don't disconnect on unmount — keep connection alive
+      socketService.disconnect();
+      resetSession();
     };
-  }, []);
+  }, [resetSession, token]);
 
-  // Navigate to report when ready
   useEffect(() => {
     if (report) {
       navigate('/report/latest', { state: { report } });
     }
-  }, [report, navigate]);
+  }, [navigate, report]);
 
   const handleStart = useCallback(() => {
-    if (!isConnected) {
-      socketService.connect();
-      // Retry after brief delay
-      setTimeout(() => {
-        socketService.startSession();
-      }, 500);
-      return;
+    if (!isConnected && token) {
+      socketService.connect(token);
     }
+
     socketService.startSession();
-  }, [isConnected]);
+  }, [isConnected, token]);
 
   const handleEnd = useCallback(() => {
     socketService.endSession();
@@ -49,37 +54,52 @@ export default function SessionPage() {
   return (
     <div className="min-h-screen pt-20 pb-8 px-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-6 animate-fade-in">
-          <h1 className="text-2xl font-bold text-white mb-1">Bicep Curl Session</h1>
-          <p className="text-sm text-dark-300">
-            {!sessionActive
-              ? 'Position yourself in front of the camera and press Start'
-              : 'Session active — perform your curls with proper form'}
-          </p>
+          <ScrollFloat containerClassName="session-title-wrap" textClassName="session-title">
+            LIVE SESSION
+          </ScrollFloat>
+          <BlurText
+            text={
+              !sessionActive
+                ? 'Authenticated browser CV is ready. Position yourself in frame and start the curl session.'
+                : 'Session active. FitMon is streaming pose and sensor data through the protected socket.'
+            }
+            delay={80}
+            animateBy="words"
+            direction="top"
+            className="session-subtitle"
+          />
         </div>
 
-        {/* Main Layout */}
         <div className="grid lg:grid-cols-[1fr_320px] gap-6">
-          {/* Left: Webcam */}
           <div className="flex flex-col gap-4">
             <WebcamFeed />
 
-            {/* Controls */}
-            <div className="flex items-center justify-between glass-card p-4">
-              <div className="flex items-center gap-3">
-                {/* Pose status */}
-                <div className={`status-badge ${poseReady ? 'connected' : 'disconnected'}`}>
-                  {poseReady ? 'Pose AI Ready' : 'Loading AI...'}
+            {socketError ? (
+              <div className="camera-error relative top-auto left-auto right-auto">
+                <div>
+                  <strong>Socket connection problem</strong>
+                  <p>{socketError}</p>
                 </div>
               </div>
+            ) : null}
 
-              <div className="flex items-center gap-3">
+            <div className="session-control-dock glass-card">
+              <div className="session-control-copy">
+                <div className={`status-badge ${poseReady && isConnected ? 'connected' : 'disconnected'}`}>
+                  {poseReady && isConnected ? 'Pose + Socket Ready' : 'Preparing Session'}
+                </div>
+                <p className="session-control-note">
+                  Live inference stays in the browser for latency, while the backend orchestrates secure session state and report generation.
+                </p>
+              </div>
+
+              <div className="session-control-actions">
                 {!sessionActive ? (
                   <button
                     onClick={handleStart}
-                    disabled={!poseReady}
-                    className="btn-primary inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+                    disabled={!poseReady || !token}
+                    className="btn-primary session-control-button inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
                   >
                     <Play className="w-4 h-4" />
                     Start Session
@@ -88,7 +108,7 @@ export default function SessionPage() {
                   <button
                     onClick={handleEnd}
                     disabled={isGeneratingReport}
-                    className="btn-danger inline-flex items-center gap-2 disabled:opacity-60"
+                    className="btn-danger session-control-button inline-flex items-center gap-2 disabled:opacity-60"
                   >
                     {isGeneratingReport ? (
                       <>
@@ -107,7 +127,6 @@ export default function SessionPage() {
             </div>
           </div>
 
-          {/* Right: Feedback Panel */}
           <aside className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
             <FeedbackPanel />
           </aside>
