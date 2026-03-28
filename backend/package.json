@@ -1,13 +1,18 @@
 {
-  "name": "backend",
+  "name": "fitmon-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "FitMon real-time orchestration backend",
+  "main": "src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index.js"
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js"
   },
-  "keywords": [],
+  "keywords": [
+    "fitmon",
+    "express",
+    "socket.io",
+    "firebase"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
