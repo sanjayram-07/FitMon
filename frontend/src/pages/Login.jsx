@@ -44,27 +44,14 @@ export default function Login() {
 
           <div style={{ textAlign: 'center' }}>
             <h2 className="section-title" style={{ fontSize: '1.4rem', marginBottom: '8px' }}>
-              Welcome back, Trainee
+              Welcome to FitMon
             </h2>
             <p className="text-secondary" style={{ fontSize: '0.9rem' }}>
-              Sign in to continue.
+              Continue with Google to sign in or create your account.
             </p>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label className="text-secondary" style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem' }}>
-                Email
-              </label>
-              <input className="input-field" type="email" placeholder="you@email.com" />
-            </div>
-            <div>
-              <label className="text-secondary" style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem' }}>
-                Password
-              </label>
-              <input className="input-field" type="password" placeholder="••••••••" />
-            </div>
-
             <button
               type="button"
               onClick={handleGoogleSignIn}
@@ -72,12 +59,8 @@ export default function Login() {
               className="btn-primary button-block"
               style={{ padding: '14px 28px', fontSize: '0.95rem' }}
             >
-              {isSubmitting ? 'Signing in...' : 'Sign In'}
+              {isSubmitting ? 'Connecting...' : 'Continue with Google'}
             </button>
-
-            <a href="#" style={{ color: 'var(--muted)', fontSize: '0.85rem', textAlign: 'center' }}>
-              Forgot password?
-            </a>
 
             {(localError || storeError) && (
               <div className="camera-error camera-error-inline" style={{ marginTop: '4px' }}>

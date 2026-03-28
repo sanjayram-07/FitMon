@@ -15,7 +15,7 @@ export default function Profile() {
   const [goalInput, setGoalInput] = useState('');
 
   useEffect(() => {
-    if (user?.uid) fetchProfileMetrics(user.uid);
+    if (user) fetchProfileMetrics(user);
   }, [user, fetchProfileMetrics]);
 
   useEffect(() => {
@@ -35,6 +35,16 @@ export default function Profile() {
     if (score < 25) return <span className="badge-success">Low Risk</span>;
     if (score < 55) return <span className="badge-warning">Moderate</span>;
     return <span className="badge-danger">High Risk</span>;
+  };
+
+  const getSessionTimestamp = (session) => {
+    const ts = session?.startedAt ?? session?.createdAt ?? session?.endedAt;
+    if (!ts) return null;
+    if (typeof ts === 'number') return ts;
+    if (typeof ts?.toDate === 'function') return ts.toDate().getTime();
+    if (typeof ts?.seconds === 'number') return ts.seconds * 1000;
+    const parsed = new Date(ts).getTime();
+    return Number.isNaN(parsed) ? null : parsed;
   };
 
   return (
@@ -136,7 +146,7 @@ export default function Profile() {
                 }}>
                   <div>
                     <p style={{ color: 'var(--text)', fontWeight: 500, marginBottom: '4px', fontSize: '0.95rem' }}>
-                      {new Date(sess.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(getSessionTimestamp(sess) || 0).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
                     <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
                       Posture: {sess.avgPostureScore || 0}/100

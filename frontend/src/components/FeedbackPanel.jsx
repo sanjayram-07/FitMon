@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Gauge, Target, Zap, AlertTriangle, TrendingUp, Shield } from 'lucide-react';
 import useSessionStore from '../stores/useSessionStore';
 
@@ -12,11 +12,17 @@ export default function FeedbackPanel() {
   const engagementStatus = useSessionStore((s) => s.engagementStatus);
   const feedbackMessages = useSessionStore((s) => s.feedbackMessages);
   const repState = useSessionStore((s) => s.repState);
+  const sessionActive = useSessionStore((s) => s.sessionActive);
 
   const [displayedReps, setDisplayedReps] = useState(repCount);
   const [displayedPosture, setDisplayedPosture] = useState(postureScore);
   const [displayedPressure, setDisplayedPressure] = useState(averageFsr);
   const [displayedForm, setDisplayedForm] = useState(engagementStatus);
+  const [delayedMessages, setDelayedMessages] = useState([]);
+
+  const queueRef = useRef([]);
+  const seenIdsRef = useRef(new Set());
+  const timerRef = useRef(null);
 
   useEffect(() => {
     if (repCount !== displayedReps) {
@@ -49,6 +55,63 @@ export default function FeedbackPanel() {
     }
     return undefined;
   }, [displayedForm, engagementStatus]);
+
+  useEffect(() => {
+    if (sessionActive) return undefined;
+    setDelayedMessages([]);
+    queueRef.current = [];
+    seenIdsRef.current = new Set();
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    return undefined;
+  }, [sessionActive]);
+
+  useEffect(() => {
+    if (!sessionActive) return undefined;
+    if (!feedbackMessages?.length) {
+      setDelayedMessages([]);
+      return undefined;
+    }
+
+    feedbackMessages.forEach((msg) => {
+      if (!seenIdsRef.current.has(msg.id)) {
+        seenIdsRef.current.add(msg.id);
+        queueRef.current.push(msg);
+      }
+    });
+
+    const pumpQueue = () => {
+      if (!queueRef.current.length) {
+        timerRef.current = null;
+        return;
+      }
+
+      const next = queueRef.current.shift();
+      setDelayedMessages((prev) => {
+        const updated = [...prev, next];
+        return updated.slice(-3);
+      });
+
+      timerRef.current = setTimeout(pumpQueue, 700);
+    };
+
+    if (!timerRef.current) {
+      timerRef.current = setTimeout(pumpQueue, 700);
+    }
+
+    return undefined;
+  }, [feedbackMessages, sessionActive]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
 
   const getRepStateLabel = () => {
     switch (repState) {
@@ -162,14 +225,14 @@ export default function FeedbackPanel() {
         </div>
       </div>
 
-      {feedbackMessages.length > 0 && (
+      {delayedMessages.length > 0 && (
         <div className="card feedback-warning">
           <div className="feedback-row">
             <AlertTriangle className="icon-sm text-warning" />
             <span className="feedback-warning-label">Feedback</span>
           </div>
           <div className="feedback-messages">
-            {feedbackMessages.map((msg) => (
+            {delayedMessages.map((msg) => (
               <p key={msg.id} className="text-secondary fade-up">
                 {msg.text}
               </p>
