@@ -9,10 +9,10 @@ export default function ProtectedRoute({ roles }) {
 
   if (!initialized || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-6">
-        <div className="glass-card p-8 text-center max-w-md w-full">
-          <p className="text-white text-lg font-semibold">Preparing your FitMon workspace...</p>
-          <p className="text-dark-300 text-sm mt-2">Authenticating with Firebase and loading your role.</p>
+      <div className="page center-content">
+        <div className="card loading-card">
+          <p className="card-title">Preparing your FitMon workspace...</p>
+          <p className="text-muted">Authenticating with Firebase and loading your role.</p>
         </div>
       </div>
     );

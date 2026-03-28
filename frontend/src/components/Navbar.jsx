@@ -17,23 +17,21 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-dark-600 bg-dark-900/80 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-6">
-        <Link to={user ? (user.role === 'mentor' ? '/mentor' : '/dashboard') : '/'} className="flex items-center gap-2 no-underline">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent-primary to-accent-secondary flex items-center justify-center">
-            <Activity className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-bold text-white tracking-tight">
-            Fit<span className="text-accent-primary">Mon</span>
+    <nav className="navbar">
+      <div className="navbar-inner">
+        <Link to={user ? (user.role === 'mentor' ? '/mentor' : '/dashboard') : '/'} className="navbar-brand">
+          <span className="navbar-logo">
+            <Activity className="icon-md" />
+          </span>
+          <span className="navbar-title">
+            Fit<span className="navbar-dot">·</span>Mon
           </span>
         </Link>
 
-        <div className="flex items-center gap-3 sm:gap-5">
+        <div className="navbar-links">
           <Link
             to={user ? (user.role === 'mentor' ? '/mentor' : '/dashboard') : '/'}
-            className={`text-sm font-medium no-underline transition-colors ${
-              ['/dashboard', '/mentor', '/'].includes(location.pathname) ? 'text-white' : 'text-dark-200 hover:text-white'
-            }`}
+            className={`navbar-link ${['/dashboard', '/mentor', '/'].includes(location.pathname) ? 'is-active' : ''}`}
           >
             Home
           </Link>
@@ -41,17 +39,15 @@ export default function Navbar() {
           {user?.role === 'trainee' ? (
             <Link
               to="/session"
-              className={`text-sm font-medium no-underline transition-colors ${
-                location.pathname === '/session' ? 'text-white' : 'text-dark-200 hover:text-white'
-              }`}
+              className={`navbar-link ${location.pathname === '/session' ? 'is-active' : ''}`}
             >
               Session
             </Link>
           ) : null}
 
           {user ? (
-            <div className="hidden md:flex items-center gap-2 text-sm text-dark-200">
-              <Shield className="w-4 h-4 text-accent-primary" />
+            <div className="navbar-meta">
+              <Shield className="icon-sm text-accent" />
               <span>{user.role}</span>
             </div>
           ) : null}
@@ -59,24 +55,24 @@ export default function Navbar() {
           <div className={`status-badge ${isConnected ? 'connected' : 'disconnected'}`}>
             {isConnected ? (
               <>
-                <Wifi className="w-3.5 h-3.5" />
+                <Wifi className="icon-sm" />
                 <span>Socket Live</span>
               </>
             ) : (
               <>
-                <WifiOff className="w-3.5 h-3.5" />
+                <WifiOff className="icon-sm" />
                 <span>Offline</span>
               </>
             )}
           </div>
 
           {user ? (
-            <button type="button" onClick={handleLogout} className="btn-secondary inline-flex items-center gap-2 text-sm py-2 px-4">
-              <LogOut className="w-4 h-4" />
+            <button type="button" onClick={handleLogout} className="btn-secondary navbar-cta button-inline">
+              <LogOut className="icon-sm" />
               Logout
             </button>
           ) : (
-            <Link to="/login" className="btn-primary inline-flex items-center gap-2 no-underline text-sm py-2 px-4">
+            <Link to="/login" className="btn-primary navbar-cta button-inline">
               Sign In
             </Link>
           )}

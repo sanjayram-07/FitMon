@@ -32,93 +32,93 @@ export default function FeedbackPanel() {
 
   const getEngagementLabel = () => {
     switch (engagementStatus) {
-      case 'good': return { text: 'Engaged', color: 'text-success' };
+      case 'good': return { text: 'Engaged', badgeClass: 'badge-success' };
       case 'low':
       case 'low_engagement':
-        return { text: 'Low', color: 'text-warning' };
+        return { text: 'Low', badgeClass: 'badge-warning' };
       case 'risk':
       case 'injury_risk':
-        return { text: 'Risk!', color: 'text-danger' };
-      case 'weak_peak': return { text: 'Weak Peak', color: 'text-warning' };
-      case 'sensor_live': return { text: 'Sensor Live', color: 'text-info' };
-      case 'no_sensor': return { text: 'No Sensor', color: 'text-dark-300' };
-      default: return { text: 'Normal', color: 'text-dark-200' };
+        return { text: 'Risk!', badgeClass: 'badge-danger' };
+      case 'weak_peak': return { text: 'Weak Peak', badgeClass: 'badge-warning' };
+      case 'sensor_live': return { text: 'Sensor Live', badgeClass: 'badge-blue' };
+      case 'no_sensor': return { text: 'No Sensor', badgeClass: 'badge-blue' };
+      default: return { text: 'Normal', badgeClass: 'badge-blue' };
     }
   };
 
   const engagement = getEngagementLabel();
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="glass-card p-6 text-center">
-        <p className="text-xs uppercase tracking-widest text-dark-300 mb-1">Reps</p>
-        <p className="text-6xl font-extrabold text-white tabular-nums">{repCount}</p>
-        <p className="text-sm text-accent-secondary mt-2 font-medium">{getRepStateLabel()}</p>
+    <div className="feedback-panel">
+      <div className="card feedback-hero">
+        <p className="feedback-label">Reps</p>
+        <p className="feedback-count tabular-nums">{repCount}</p>
+        <p className="feedback-state text-accent">{getRepStateLabel()}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Gauge className="w-4 h-4 text-accent-primary" />
-            <span className="text-xs text-dark-300">Angle</span>
+      <div className="feedback-grid">
+        <div className="card feedback-card">
+          <div className="feedback-row">
+            <Gauge className="icon-sm text-accent" />
+            <span className="feedback-card-label">Angle</span>
           </div>
-          <p className="text-2xl font-bold text-white tabular-nums">{angle}°</p>
+          <p className="feedback-value tabular-nums">{angle}°</p>
         </div>
 
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Target className="w-4 h-4 text-accent-primary" />
-            <span className="text-xs text-dark-300">Posture</span>
+        <div className="card feedback-card">
+          <div className="feedback-row">
+            <Target className="icon-sm text-accent" />
+            <span className="feedback-card-label">Posture</span>
           </div>
-          <p className={`text-2xl font-bold tabular-nums ${getScoreColor(postureScore)}`}>{postureScore}</p>
+          <p className={`feedback-value tabular-nums ${getScoreColor(postureScore)}`}>{postureScore}</p>
         </div>
 
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Shield className="w-4 h-4 text-accent-primary" />
-            <span className="text-xs text-dark-300">Stability</span>
+        <div className="card feedback-card">
+          <div className="feedback-row">
+            <Shield className="icon-sm text-accent" />
+            <span className="feedback-card-label">Stability</span>
           </div>
-          <p className={`text-2xl font-bold tabular-nums ${getScoreColor(elbowStability)}`}>{elbowStability}%</p>
+          <p className={`feedback-value tabular-nums ${getScoreColor(elbowStability)}`}>{elbowStability}%</p>
         </div>
 
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="w-4 h-4 text-accent-primary" />
-            <span className="text-xs text-dark-300">Smooth</span>
+        <div className="card feedback-card">
+          <div className="feedback-row">
+            <TrendingUp className="icon-sm text-accent" />
+            <span className="feedback-card-label">Smooth</span>
           </div>
-          <p className={`text-2xl font-bold tabular-nums ${getScoreColor(smoothness)}`}>{smoothness}</p>
+          <p className={`feedback-value tabular-nums ${getScoreColor(smoothness)}`}>{smoothness}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Zap className="w-4 h-4 text-accent-primary" />
-            <span className="text-xs text-dark-300">FSR Value</span>
+      <div className="feedback-grid">
+        <div className="card feedback-card">
+          <div className="feedback-row">
+            <Zap className="icon-sm text-accent" />
+            <span className="feedback-card-label">FSR Value</span>
           </div>
-          <p className="text-2xl font-bold text-white tabular-nums">{Math.round(averageFsr || 0)}</p>
+          <p className="feedback-value tabular-nums">{Math.round(averageFsr || 0)}</p>
         </div>
 
-        <div className="glass-card p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-accent-primary" />
-              <span className="text-xs text-dark-300">Engagement</span>
+        <div className="card feedback-card">
+          <div className="feedback-row feedback-row-between">
+            <div className="feedback-row">
+              <Zap className="icon-sm text-accent" />
+              <span className="feedback-card-label">Engagement</span>
             </div>
-            <span className={`text-sm font-bold ${engagement.color}`}>{engagement.text}</span>
+            <span className={`feedback-status ${engagement.badgeClass}`}>{engagement.text}</span>
           </div>
         </div>
       </div>
 
       {feedbackMessages.length > 0 && (
-        <div className="glass-card p-4 border-warning/30">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-4 h-4 text-warning" />
-            <span className="text-xs text-warning font-semibold uppercase tracking-wider">Feedback</span>
+        <div className="card feedback-warning">
+          <div className="feedback-row">
+            <AlertTriangle className="icon-sm text-warning" />
+            <span className="feedback-warning-label">Feedback</span>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="feedback-messages">
             {feedbackMessages.map((msg) => (
-              <p key={msg.id} className="text-sm text-dark-100 animate-fade-in">
+              <p key={msg.id} className="text-secondary fade-up">
                 {msg.text}
               </p>
             ))}

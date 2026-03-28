@@ -41,52 +41,55 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-6">
-      <div className="max-w-6xl mx-auto grid lg:grid-cols-[1.1fr_0.9fr] gap-8 items-stretch">
-        <section className="glass-card p-10 lg:p-12">
-          <div className="hero-pill mb-6">
-            <Activity className="h-4 w-4 text-accent-primary" />
+    <div className="auth-page">
+      <div className="auth-grid">
+        <section className="card auth-hero">
+          <div className="hero-pill badge-success">
+            <Activity className="icon-sm" />
             <span>Secure OAuth access</span>
           </div>
-          <h1 className="text-4xl lg:text-5xl font-black text-white leading-tight">
+          <h1 className="page-title">
             Sign in to launch your
-            <span className="text-accent-primary"> AI workout monitor</span>
+            <span className="text-accent"> AI workout monitor</span>
           </h1>
-          <p className="text-dark-200 mt-5 max-w-xl">
+          <p className="auth-copy">
             FitMon uses Firebase Authentication with Google Sign-In and verifies the ID token on the backend before any
             protected route or real-time socket session opens.
           </p>
 
-          <div className="grid sm:grid-cols-3 gap-4 mt-8">
+          <div className="auth-value-grid">
             <ValueCard label="Auth" value="Firebase OAuth" />
             <ValueCard label="Realtime" value="Token-gated Socket.IO" />
             <ValueCard label="Storage" value="Firestore users + sessions" />
           </div>
         </section>
 
-        <section className="glass-card p-8 lg:p-10 flex flex-col justify-between">
+        <section className="card auth-card">
+          <div className="auth-logo">
+            Fit<span className="navbar-dot">·</span>Mon
+          </div>
           <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-dark-300">Welcome Back</p>
-            <h2 className="text-2xl font-bold text-white mt-3">Continue with Google</h2>
-            <p className="text-dark-200 text-sm mt-3">
+            <p className="section-label">Welcome Back</p>
+            <h2 className="section-title">Continue with Google</h2>
+            <p className="text-secondary">
               New accounts are provisioned automatically in Firestore with the default role of trainee.
             </p>
           </div>
 
-          <div className="mt-8">
+          <div>
             <button
               type="button"
               onClick={handleGoogleSignIn}
               disabled={isSubmitting}
-              className="btn-primary w-full inline-flex items-center justify-center gap-3 disabled:opacity-60"
+              className="btn-primary button-inline button-block"
             >
               <span>{isSubmitting ? 'Opening Google...' : 'Sign in with Google'}</span>
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="icon-sm" />
             </button>
 
             {(localError || storeError) ? (
-              <div className="camera-error relative top-auto left-auto right-auto mt-4">
-                <AlertTriangle className="h-5 w-5" />
+              <div className="camera-error camera-error-inline auth-error">
+                <AlertTriangle className="icon-md" />
                 <div>
                   <strong>Authentication issue</strong>
                   <p>{localError || storeError}</p>
@@ -94,12 +97,12 @@ export default function Login() {
               </div>
             ) : null}
 
-            <p className="text-xs text-dark-300 mt-5">
+            <p className="text-muted">
               Trainees are redirected to `/dashboard`; mentors are redirected to `/mentor`.
             </p>
           </div>
 
-          <Link to="/" className="text-sm text-dark-200 hover:text-white no-underline mt-8 inline-flex items-center gap-2">
+          <Link to="/" className="auth-link button-inline">
             Back to landing
           </Link>
         </section>
@@ -110,9 +113,9 @@ export default function Login() {
 
 function ValueCard({ label, value }) {
   return (
-    <div className="rounded-3xl border border-dark-600 bg-dark-800/60 p-5">
-      <p className="text-xs uppercase tracking-[0.25em] text-dark-300">{label}</p>
-      <p className="text-white font-semibold mt-2">{value}</p>
+    <div className="card value-card">
+      <p className="metric-label">{label}</p>
+      <p className="card-title">{value}</p>
     </div>
   );
 }
