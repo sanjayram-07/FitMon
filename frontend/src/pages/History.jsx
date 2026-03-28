@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import jsPDF from 'jspdf';
 import { firebaseApp } from '../firebase/config';
 import useAuthStore from '../store/useAuthStore';
 import '../index.css';
@@ -15,13 +16,26 @@ export default function History() {
 
   useEffect(() => {
     async function fetchSessions() {
-      if (!db || !user?.uid) return;
+      if (!db || (!user?.uid && !user?.email)) {
+        setLoading(false);
+        return;
+      }
       try {
-        const q = query(collection(db, 'sessions'), where('userId', '==', user.uid));
-        const snap = await getDocs(q);
-        const data = [];
-        snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
-        data.sort((a, b) => new Date(b.startedAt || 0) - new Date(a.startedAt || 0));
+        const sessionsRef = collection(db, 'sessions');
+        const queries = [];
+        if (user?.uid) queries.push(getDocs(query(sessionsRef, where('userId', '==', user.uid))));
+        if (user?.email) queries.push(getDocs(query(sessionsRef, where('email', '==', user.email))));
+
+        const snapshots = await Promise.all(queries);
+        const sessionMap = new Map();
+        snapshots.forEach((snap) => {
+          snap.forEach((docSnap) => {
+            sessionMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
+          });
+        });
+
+        const data = Array.from(sessionMap.values());
+        data.sort((a, b) => getSessionTimestamp(b) - getSessionTimestamp(a));
         setSessions(data);
       } catch (e) {
         console.error('Failed to fetch history', e);
@@ -44,19 +58,74 @@ export default function History() {
     return { text: 'High Risk', cls: 'badge-danger' };
   };
 
+  const getSessionTimestamp = (session) => {
+    const ts = session?.startedAt ?? session?.createdAt ?? session?.endedAt;
+    if (!ts) return 0;
+    if (typeof ts === 'number') return ts;
+    if (typeof ts?.toDate === 'function') return ts.toDate().getTime();
+    if (typeof ts?.seconds === 'number') return ts.seconds * 1000;
+    const parsed = new Date(ts).getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
   const filteredSessions = sessions.filter((sess) => {
     if (filter === 'All') return true;
     return getRiskLevel(sess.injuryRiskScore || 0) === filter;
   });
 
   const handleDownload = (session) => {
-    const blob = new Blob([JSON.stringify(session, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fitmon-report-${new Date(session.startedAt || 0).toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 14;
+    let y = 18;
+
+    const addTitle = (text) => {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(18);
+      pdf.setTextColor(25, 25, 25);
+      pdf.text(text, margin, y);
+      y += 10;
+    };
+
+    const addSubTitle = (text) => {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.setTextColor(90, 90, 90);
+      pdf.text(text, margin, y);
+      y += 8;
+    };
+
+    const addRow = (label, value) => {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.setTextColor(90, 90, 90);
+      pdf.text(`${label}:`, margin, y);
+      pdf.setTextColor(25, 25, 25);
+      pdf.text(String(value ?? '—'), margin + 42, y);
+      y += 7;
+    };
+
+    const timestamp = getSessionTimestamp(session);
+    const dateLabel = timestamp
+      ? new Date(timestamp).toLocaleString('en-US', {
+          month: 'short', day: 'numeric', year: 'numeric',
+          hour: 'numeric', minute: '2-digit',
+        })
+      : '—';
+    const repsCount = session.totalReps ?? (session.correctReps || 0) + (session.incorrectReps || 0);
+
+    addTitle('FitMon Session Report');
+    addSubTitle(`Session Date: ${dateLabel}`);
+
+    addRow('Duration', formatDuration(session.duration));
+    addRow('Total Reps', repsCount || 0);
+    addRow('Correct Reps', session.correctReps ?? '—');
+    addRow('Incorrect Reps', session.incorrectReps ?? '—');
+    addRow('Posture Score', session.avgPostureScore ?? '—');
+    addRow('Accuracy', session.accuracy ? `${session.accuracy}%` : '—');
+    addRow('Injury Risk', session.injuryRiskScore ? `${session.injuryRiskScore}%` : '—');
+
+    pdf.save(`fitmon-session-${new Date(timestamp || Date.now()).toISOString().split('T')[0]}.pdf`);
   };
 
   const formatDuration = (seconds) => {
@@ -111,6 +180,7 @@ export default function History() {
             {filteredSessions.map((sess) => {
               const badge = getRiskBadge(sess.injuryRiskScore || 0);
               const postureColor = (sess.avgPostureScore || 0) >= 70 ? 'var(--accent)' : 'var(--warning)';
+              const repsCount = sess.totalReps ?? (sess.correctReps || 0) + (sess.incorrectReps || 0);
               return (
                 <div key={sess.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
@@ -118,7 +188,7 @@ export default function History() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <p style={{ color: 'var(--text)', fontWeight: 500, fontSize: '0.95rem', marginBottom: '4px' }}>
-                        {formatDate(sess.startedAt)}
+                        {formatDate(getSessionTimestamp(sess))}
                       </p>
                       <p style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>
                         Duration: {formatDuration(sess.duration)}
@@ -143,7 +213,7 @@ export default function History() {
                         Reps
                       </p>
                       <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.3rem', color: 'var(--text)' }}>
-                        {sess.totalReps || 0}
+                        {repsCount || 0}
                       </p>
                     </div>
                   </div>
@@ -154,7 +224,7 @@ export default function History() {
                     className="btn-secondary"
                     style={{ width: '100%', padding: '10px', fontSize: '0.85rem', marginTop: 'auto' }}
                   >
-                    Download Report
+                    Download PDF
                   </button>
                 </div>
               );
