@@ -115,7 +115,7 @@ export default function Navbar() {
     <nav className="navbar">
       <div className="navbar-inner">
         {/* Logo */}
-        <Link to="/dashboard" className="navbar-brand">
+        <Link to="/" className="navbar-brand">
           <span className="navbar-title">
             Fit<span className="navbar-dot">·</span>Mon
           </span>

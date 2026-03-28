@@ -213,15 +213,13 @@ export default function FeedbackPanel() {
         </div>
 
         <div className="card feedback-card">
-          <div className="feedback-row feedback-row-between">
-            <div className="feedback-row">
-              <Zap className="icon-sm text-accent" />
-              <span className="feedback-card-label">Form Quality</span>
-            </div>
-            <span className={`feedback-status ${engagement.badgeClass} ${formUpdating ? 'metric-updating' : ''}`}>
-              {engagement.text}
-            </span>
+          <div className="feedback-row">
+            <Zap className="icon-sm text-accent" />
+            <span className="feedback-card-label">Form Quality</span>
           </div>
+          <span className={`feedback-status ${engagement.badgeClass} ${formUpdating ? 'metric-updating' : ''}`}>
+            {engagement.text}
+          </span>
         </div>
       </div>
 

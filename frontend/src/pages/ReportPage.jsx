@@ -41,22 +41,24 @@ export default function ReportPage() {
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   };
 
-  const calculateInjuryRisk = (postureScoreValue, averageFsrValue, repCountValue) => {
-    const postureRisk = Math.max(0, 100 - postureScoreValue);
+  const calculateInjuryRisk = (postureScoreValue, averageFsrValue, repCountValue, backendScore) => {
+    let totalRisk = Number.isFinite(backendScore) ? backendScore : null;
 
-    const fsrRisk = averageFsrValue < 20
-      ? (20 - averageFsrValue) * 2
-      : averageFsrValue > 80
-        ? (averageFsrValue - 80) * 1.5
-        : 0;
+    if (totalRisk === null) {
+      const postureRisk = Math.max(0, 100 - postureScoreValue);
+      const fsrRisk = averageFsrValue < 20
+        ? (20 - averageFsrValue) * 2
+        : averageFsrValue > 80
+          ? (averageFsrValue - 80) * 1.5
+          : 0;
+      const repRisk = repCountValue > 30 ? Math.min((repCountValue - 30) * 1.5, 30) : 0;
+      totalRisk = (postureRisk * 0.5) + (fsrRisk * 0.3) + (repRisk * 0.2);
+    }
 
-    const repRisk = repCountValue > 30 ? Math.min((repCountValue - 30) * 1.5, 30) : 0;
-
-    const totalRisk = (postureRisk * 0.5) + (fsrRisk * 0.3) + (repRisk * 0.2);
-
-    if (totalRisk < 25) return { level: 'Low', score: Math.round(totalRisk), color: 'success' };
-    if (totalRisk < 55) return { level: 'Moderate', score: Math.round(totalRisk), color: 'warning' };
-    return { level: 'High', score: Math.round(totalRisk), color: 'danger' };
+    const bounded = Math.max(0, Math.min(100, Math.round(totalRisk)));
+    if (bounded < 25) return { level: 'Low', score: bounded, color: 'success' };
+    if (bounded < 55) return { level: 'Moderate', score: bounded, color: 'warning' };
+    return { level: 'High', score: bounded, color: 'danger' };
   };
 
   const averageFsrValue = Number.isFinite(report.avgFsr)
@@ -66,7 +68,12 @@ export default function ReportPage() {
       : 0;
   const postureScoreValue = report.avgPostureScore ?? 0;
   const repCountValue = report.totalReps ?? 0;
-  const injuryRisk = calculateInjuryRisk(postureScoreValue, averageFsrValue, repCountValue);
+  const injuryRisk = calculateInjuryRisk(
+    postureScoreValue,
+    averageFsrValue,
+    repCountValue,
+    report.injuryRiskScore,
+  );
   const riskBadgeClass = injuryRisk.color === 'success'
     ? 'badge-success'
     : injuryRisk.color === 'warning'
