@@ -1,6 +1,6 @@
 import { createElement, useState } from 'react';
-import jsPDF from 'jspdf';
 import { useLocation, Link } from 'react-router-dom';
+import { buildReportPdf, getReportPdfFileName } from '../utils/reportPdf';
 import {
   ArrowDownToLine,
   Trophy,
@@ -81,113 +81,12 @@ export default function ReportPage() {
     try {
       setPdfError('');
       setIsDownloadingPdf(true);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 14;
-      let y = 18;
-
-      const addSectionTitle = (title) => {
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(13);
-        pdf.setTextColor(28, 24, 25);
-        pdf.text(title, margin, y);
-        y += 7;
-      };
-
-      const addBodyText = (text) => {
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-        pdf.setTextColor(70, 70, 70);
-        const lines = pdf.splitTextToSize(text, pageWidth - margin * 2);
-        pdf.text(lines, margin, y);
-        y += (lines.length * 5) + 2;
-      };
-
-      const ensureSpace = (needed = 20) => {
-        if (y + needed > pageHeight - 14) {
-          pdf.addPage();
-          y = 18;
-        }
-      };
-
-      pdf.setFillColor(255, 123, 84);
-      pdf.roundedRect(margin, y, pageWidth - margin * 2, 26, 4, 4, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(20);
-      pdf.text('FitMon Session Report', margin + 6, y + 11);
-      pdf.setFontSize(10);
-      pdf.text(`Generated: ${new Date(report.startedAt).toLocaleString()}`, margin + 6, y + 19);
-      y += 36;
-
-      addSectionTitle('Overview');
-      addBodyText(insights.summary || `You completed ${report.totalReps} reps with ${report.accuracy}% accuracy.`);
-
-      ensureSpace(30);
-      const metrics = [
-        ['Grade', grade],
-        ['Total Reps', String(report.totalReps)],
-        ['Accuracy', `${report.accuracy}%`],
-        ['Duration', formatDuration(report.duration)],
-        ['Posture', String(report.avgPostureScore)],
-        ['Injury Risk', `${injuryRisk.score}%`],
-      ];
-
-      let metricX = margin;
-      metrics.forEach(([label, value], index) => {
-        pdf.setFillColor(247, 244, 241);
-        pdf.roundedRect(metricX, y, 28, 20, 3, 3, 'F');
-        pdf.setTextColor(100, 100, 100);
-        pdf.setFontSize(8);
-        pdf.text(label, metricX + 3, y + 6);
-        pdf.setTextColor(30, 30, 30);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(12);
-        pdf.text(value, metricX + 3, y + 14);
-        metricX += 31;
-        if ((index + 1) % 3 === 0) {
-          y += 24;
-          metricX = margin;
-        }
-      });
-      y += 6;
-
-      ensureSpace(55);
-      addSectionTitle('Rep Performance');
-      drawPerformanceChart(pdf, reps, margin, y, pageWidth - margin * 2, 52);
-      y += 60;
-
-      ensureSpace(35);
-      addSectionTitle('Risk Summary');
-      addBodyText(`Injury risk score: ${injuryRisk.score}%. Incorrect reps: ${report.incorrectReps}. Ineffective reps: ${report.ineffectiveReps}.`);
-
-      if (insights.improvements?.length) {
-        ensureSpace(30);
-        addSectionTitle('Improvements');
-        insights.improvements.forEach((item) => addBodyText(`- ${item}`));
+      const pdf = buildReportPdf(report);
+      if (!pdf) {
+        setPdfError('Report data is not available yet.');
+        return;
       }
-
-      if (insights.warnings?.length || insights.injuryExplanation) {
-        ensureSpace(30);
-        addSectionTitle('Warnings');
-        insights.warnings?.forEach((warning) => addBodyText(`- ${warning}`));
-        if (insights.injuryExplanation) addBodyText(insights.injuryExplanation);
-      }
-
-      if (insights.positiveFeedback?.length) {
-        ensureSpace(30);
-        addSectionTitle('What Went Well');
-        insights.positiveFeedback.forEach((item) => addBodyText(`- ${item}`));
-      }
-
-      if (reps.length) {
-        ensureSpace(45);
-        addSectionTitle('Rep History');
-        drawRepTable(pdf, reps, margin, y, pageWidth - margin * 2);
-      }
-
-      pdf.save(`fitmon-report-${report.sessionId || 'session'}.pdf`);
+      pdf.save(getReportPdfFileName(report));
     } catch (error) {
       setPdfError(error?.message || 'PDF generation failed in this browser session.');
     } finally {

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
-import jsPDF from 'jspdf';
 import { firebaseApp } from '../firebase/config';
 import useAuthStore from '../store/useAuthStore';
+import { buildReportPdf, getReportPdfFileName } from '../utils/reportPdf';
 import '../index.css';
 
 const db = firebaseApp ? getFirestore(firebaseApp) : null;
@@ -23,7 +23,7 @@ export default function History() {
       try {
         const sessionsRef = collection(db, 'sessions');
         const queries = [];
-        if (user?.uid) queries.push(getDocs(query(sessionsRef, where('userId', '==', user.uid))));
+        if (user?.uid) queries.push(getDocs(query(sessionsRef, where('uid', '==', user.uid))));
         if (user?.email) queries.push(getDocs(query(sessionsRef, where('email', '==', user.email))));
 
         const snapshots = await Promise.all(queries);
@@ -74,58 +74,9 @@ export default function History() {
   });
 
   const handleDownload = (session) => {
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const margin = 14;
-    let y = 18;
-
-    const addTitle = (text) => {
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(18);
-      pdf.setTextColor(25, 25, 25);
-      pdf.text(text, margin, y);
-      y += 10;
-    };
-
-    const addSubTitle = (text) => {
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(11);
-      pdf.setTextColor(90, 90, 90);
-      pdf.text(text, margin, y);
-      y += 8;
-    };
-
-    const addRow = (label, value) => {
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(11);
-      pdf.setTextColor(90, 90, 90);
-      pdf.text(`${label}:`, margin, y);
-      pdf.setTextColor(25, 25, 25);
-      pdf.text(String(value ?? '—'), margin + 42, y);
-      y += 7;
-    };
-
-    const timestamp = getSessionTimestamp(session);
-    const dateLabel = timestamp
-      ? new Date(timestamp).toLocaleString('en-US', {
-          month: 'short', day: 'numeric', year: 'numeric',
-          hour: 'numeric', minute: '2-digit',
-        })
-      : '—';
-    const repsCount = session.totalReps ?? (session.correctReps || 0) + (session.incorrectReps || 0);
-
-    addTitle('FitMon Session Report');
-    addSubTitle(`Session Date: ${dateLabel}`);
-
-    addRow('Duration', formatDuration(session.duration));
-    addRow('Total Reps', repsCount || 0);
-    addRow('Correct Reps', session.correctReps ?? '—');
-    addRow('Incorrect Reps', session.incorrectReps ?? '—');
-    addRow('Posture Score', session.avgPostureScore ?? '—');
-    addRow('Accuracy', session.accuracy ? `${session.accuracy}%` : '—');
-    addRow('Injury Risk', session.injuryRiskScore ? `${session.injuryRiskScore}%` : '—');
-
-    pdf.save(`fitmon-session-${new Date(timestamp || Date.now()).toISOString().split('T')[0]}.pdf`);
+    const pdf = buildReportPdf(session);
+    if (!pdf) return;
+    pdf.save(getReportPdfFileName(session));
   };
 
   const formatDuration = (seconds) => {
