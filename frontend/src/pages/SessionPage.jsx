@@ -13,10 +13,19 @@ export default function SessionPage() {
   const isConnected = useSessionStore((state) => state.isConnected);
   const sessionActive = useSessionStore((state) => state.sessionActive);
   const poseReady = useSessionStore((state) => state.poseReady);
+  const repCount = useSessionStore((state) => state.repCount);
+  const postureScore = useSessionStore((state) => state.postureScore);
+  const averageFsr = useSessionStore((state) => state.averageFsr);
+  const engagementStatus = useSessionStore((state) => state.engagementStatus);
   const report = useSessionStore((state) => state.report);
   const isGeneratingReport = useSessionStore((state) => state.isGeneratingReport);
   const socketError = useSessionStore((state) => state.socketError);
   const resetSession = useSessionStore((state) => state.resetSession);
+
+  const [displayedReps, setDisplayedReps] = useState(repCount);
+  const [displayedPosture, setDisplayedPosture] = useState(postureScore);
+  const [displayedPressure, setDisplayedPressure] = useState(averageFsr);
+  const [displayedForm, setDisplayedForm] = useState(engagementStatus);
 
   useEffect(() => {
     if (!token) return undefined;
@@ -32,6 +41,43 @@ export default function SessionPage() {
       navigate('/report/latest', { state: { report } });
     }
   }, [navigate, report]);
+
+  useEffect(() => {
+    if (repCount !== displayedReps) {
+      const timer = setTimeout(() => setDisplayedReps(repCount), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [displayedReps, repCount]);
+
+  useEffect(() => {
+    if (postureScore !== displayedPosture) {
+      const timer = setTimeout(() => setDisplayedPosture(postureScore), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [displayedPosture, postureScore]);
+
+  useEffect(() => {
+    if (averageFsr !== displayedPressure) {
+      const timer = setTimeout(() => setDisplayedPressure(averageFsr), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [averageFsr, displayedPressure]);
+
+  useEffect(() => {
+    if (engagementStatus !== displayedForm) {
+      const timer = setTimeout(() => setDisplayedForm(engagementStatus), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [displayedForm, engagementStatus]);
+
+  const repsUpdating = displayedReps !== repCount;
+  const postureUpdating = displayedPosture !== postureScore;
+  const pressureUpdating = displayedPressure !== averageFsr;
+  const formUpdating = displayedForm !== engagementStatus;
 
   const handleStart = useCallback(() => {
     if (!isConnected && token) socketService.connect(token);
@@ -70,6 +116,25 @@ export default function SessionPage() {
             {/* Camera feed */}
             <div className="card session-feed-card">
               <WebcamFeed />
+            </div>
+
+            <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+              <div className="card metric-card">
+                <p className="metric-label">Reps</p>
+                <p className={`metric-value ${repsUpdating ? 'metric-updating' : ''}`}>{displayedReps}</p>
+              </div>
+              <div className="card metric-card">
+                <p className="metric-label">Posture</p>
+                <p className={`metric-value ${postureUpdating ? 'metric-updating' : ''}`}>{displayedPosture}</p>
+              </div>
+              <div className="card metric-card">
+                <p className="metric-label">Pressure</p>
+                <p className={`metric-value ${pressureUpdating ? 'metric-updating' : ''}`}>{Math.round(displayedPressure || 0)}</p>
+              </div>
+              <div className="card metric-card">
+                <p className="metric-label">Form Quality</p>
+                <p className={`metric-value ${formUpdating ? 'metric-updating' : ''}`}>{displayedForm || '—'}</p>
+              </div>
             </div>
 
             {/* Socket error */}

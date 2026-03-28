@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Gauge, Target, Zap, AlertTriangle, TrendingUp, Shield } from 'lucide-react';
 import useSessionStore from '../stores/useSessionStore';
 
@@ -11,6 +12,43 @@ export default function FeedbackPanel() {
   const engagementStatus = useSessionStore((s) => s.engagementStatus);
   const feedbackMessages = useSessionStore((s) => s.feedbackMessages);
   const repState = useSessionStore((s) => s.repState);
+
+  const [displayedReps, setDisplayedReps] = useState(repCount);
+  const [displayedPosture, setDisplayedPosture] = useState(postureScore);
+  const [displayedPressure, setDisplayedPressure] = useState(averageFsr);
+  const [displayedForm, setDisplayedForm] = useState(engagementStatus);
+
+  useEffect(() => {
+    if (repCount !== displayedReps) {
+      const timer = setTimeout(() => setDisplayedReps(repCount), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [displayedReps, repCount]);
+
+  useEffect(() => {
+    if (postureScore !== displayedPosture) {
+      const timer = setTimeout(() => setDisplayedPosture(postureScore), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [displayedPosture, postureScore]);
+
+  useEffect(() => {
+    if (averageFsr !== displayedPressure) {
+      const timer = setTimeout(() => setDisplayedPressure(averageFsr), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [averageFsr, displayedPressure]);
+
+  useEffect(() => {
+    if (engagementStatus !== displayedForm) {
+      const timer = setTimeout(() => setDisplayedForm(engagementStatus), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [displayedForm, engagementStatus]);
 
   const getRepStateLabel = () => {
     switch (repState) {
@@ -30,29 +68,35 @@ export default function FeedbackPanel() {
     return 'text-danger';
   };
 
-  const getEngagementLabel = () => {
-    switch (engagementStatus) {
-      case 'good': return { text: 'Engaged', badgeClass: 'badge-success' };
+  const getEngagementLabel = (status) => {
+    switch (status) {
+      case 'good': return { text: 'Strong', badgeClass: 'badge-success' };
       case 'low':
       case 'low_engagement':
         return { text: 'Low', badgeClass: 'badge-warning' };
       case 'risk':
       case 'injury_risk':
-        return { text: 'Risk!', badgeClass: 'badge-danger' };
+        return { text: 'Risk', badgeClass: 'badge-danger' };
       case 'weak_peak': return { text: 'Weak Peak', badgeClass: 'badge-warning' };
-      case 'sensor_live': return { text: 'Sensor Live', badgeClass: 'badge-blue' };
-      case 'no_sensor': return { text: 'No Sensor', badgeClass: 'badge-blue' };
+      case 'sensor_live': return { text: 'Connected', badgeClass: 'badge-blue' };
+      case 'no_sensor': return { text: 'Not Ready', badgeClass: 'badge-blue' };
       default: return { text: 'Normal', badgeClass: 'badge-blue' };
     }
   };
 
-  const engagement = getEngagementLabel();
+  const engagement = getEngagementLabel(displayedForm);
+  const repsUpdating = displayedReps !== repCount;
+  const postureUpdating = displayedPosture !== postureScore;
+  const pressureUpdating = displayedPressure !== averageFsr;
+  const formUpdating = displayedForm !== engagementStatus;
 
   return (
     <div className="feedback-panel">
       <div className="card feedback-hero">
         <p className="feedback-label">Reps</p>
-        <p className="feedback-count tabular-nums">{repCount}</p>
+        <p className={`feedback-count tabular-nums metric-value ${repsUpdating ? 'metric-updating' : ''}`}>
+          {displayedReps}
+        </p>
         <p className="feedback-state text-accent">{getRepStateLabel()}</p>
       </div>
 
@@ -70,7 +114,11 @@ export default function FeedbackPanel() {
             <Target className="icon-sm text-accent" />
             <span className="feedback-card-label">Posture</span>
           </div>
-          <p className={`feedback-value tabular-nums ${getScoreColor(postureScore)}`}>{postureScore}</p>
+          <p
+            className={`feedback-value tabular-nums metric-value ${getScoreColor(displayedPosture)} ${postureUpdating ? 'metric-updating' : ''}`}
+          >
+            {displayedPosture}
+          </p>
         </div>
 
         <div className="card feedback-card">
@@ -94,18 +142,22 @@ export default function FeedbackPanel() {
         <div className="card feedback-card">
           <div className="feedback-row">
             <Zap className="icon-sm text-accent" />
-            <span className="feedback-card-label">FSR Value</span>
+            <span className="feedback-card-label">Pressure</span>
           </div>
-          <p className="feedback-value tabular-nums">{Math.round(averageFsr || 0)}</p>
+          <p className={`feedback-value tabular-nums metric-value ${pressureUpdating ? 'metric-updating' : ''}`}>
+            {Math.round(displayedPressure || 0)}
+          </p>
         </div>
 
         <div className="card feedback-card">
           <div className="feedback-row feedback-row-between">
             <div className="feedback-row">
               <Zap className="icon-sm text-accent" />
-              <span className="feedback-card-label">Engagement</span>
+              <span className="feedback-card-label">Form Quality</span>
             </div>
-            <span className={`feedback-status ${engagement.badgeClass}`}>{engagement.text}</span>
+            <span className={`feedback-status ${engagement.badgeClass} ${formUpdating ? 'metric-updating' : ''}`}>
+              {engagement.text}
+            </span>
           </div>
         </div>
       </div>

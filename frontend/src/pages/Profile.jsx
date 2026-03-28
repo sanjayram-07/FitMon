@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
 import useProfileStore from '../stores/useProfileStore';
-import AppNavbar from '../components/AppNavbar';
 import '../index.css';
 
 export default function Profile() {
@@ -40,13 +39,12 @@ export default function Profile() {
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '80px' }}>
-      <AppNavbar />
 
       <div className="container" style={{ paddingTop: '96px', maxWidth: '800px', margin: '0 auto' }}>
 
         {/* Page header */}
         <div style={{ marginBottom: '40px' }}>
-          <p className="section-label">Your Account</p>
+          <p className="section-label">Profile</p>
           <h1 className="page-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.4rem)' }}>Profile</h1>
         </div>
 
@@ -75,14 +73,14 @@ export default function Profile() {
         {/* ── GOAL ── */}
         <div className="card" style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <p className="section-label" style={{ margin: 0 }}>Training Goal</p>
+            <p className="section-label" style={{ margin: 0 }}>Goal</p>
             {!isEditingGoal && (
               <button
                 onClick={() => setIsEditingGoal(true)}
                 className="btn-secondary"
                 style={{ padding: '6px 16px', fontSize: '0.8rem' }}
               >
-                Edit
+                Edit Goal
               </button>
             )}
           </div>
@@ -94,7 +92,7 @@ export default function Profile() {
                 className="input-field"
                 value={goalInput}
                 onChange={(e) => setGoalInput(e.target.value)}
-                placeholder="E.g. Improve posture, Build endurance…"
+                placeholder="Improve posture, Build endurance, Recover from injury"
                 autoFocus
               />
               <button onClick={handleSaveGoal} className="btn-primary" style={{ flexShrink: 0 }}>
@@ -106,9 +104,12 @@ export default function Profile() {
             </div>
           ) : (
             <p style={{ color: 'var(--text)', fontSize: '1.1rem' }}>
-              {goal || <span style={{ color: 'var(--muted)' }}>No goal set yet. Tap Edit to add one.</span>}
+              {goal || <span style={{ color: 'var(--muted)' }}>No goal set yet. Tap Edit Goal to add one.</span>}
             </p>
           )}
+          <p style={{ color: 'var(--muted)', fontSize: '0.82rem', marginTop: '12px' }}>
+            Suggestions: Improve posture, Build endurance, Recover from injury.
+          </p>
         </div>
 
         {/* ── STATS ── */}
@@ -125,10 +126,10 @@ export default function Profile() {
           </h2>
 
           {isLoading ? (
-            <p style={{ color: 'var(--muted)' }}>Loading…</p>
+            <p style={{ color: 'var(--muted)' }}>Loading...</p>
           ) : recentSessions?.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {recentSessions.map((sess, idx) => (
+              {recentSessions.slice(0, 3).map((sess, idx) => (
                 <div key={idx} className="card" style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '16px 24px',

@@ -33,13 +33,27 @@ export default function Dashboard() {
       ];
 
   return (
-    <div className="dashboard-page">
+    <div className="dashboard-page" style={{ paddingTop: '96px' }}>
       <div className="container">
 
         {/* ── LIVE SESSION BANNER ── */}
         {sessionActive && (
-          <section className="card live-banner live-session-banner fade-up">
-            <span className="live-dot" aria-hidden />
+          <section
+            className="card live-banner live-session-banner fade-up"
+            style={{
+              background: 'var(--accent-dim)',
+              borderColor: 'var(--accent-border)',
+              boxShadow: 'var(--shadow-glow)',
+            }}
+          >
+            <span
+              className="live-dot"
+              aria-hidden
+              style={{
+                background: 'var(--accent)',
+                boxShadow: 'var(--shadow-glow)',
+              }}
+            />
             <div>
               <p style={{ color: 'var(--text)', fontWeight: 500 }}>
                 Session in progress —{' '}
@@ -60,7 +74,7 @@ export default function Dashboard() {
                 {greeting}, {firstName}
               </h1>
               <p className="text-secondary" style={{ maxWidth: '440px' }}>
-                Track your sessions, monitor your progress, and keep improving your form.
+                Keep your training consistent and watch your form improve session by session.
               </p>
             </div>
             <Link to="/session" className="btn-primary button-inline">
@@ -77,7 +91,7 @@ export default function Dashboard() {
               <div>
                 <p className="section-label" style={{ marginBottom: '4px' }}>Last Session</p>
                 <p className="text-secondary" style={{ fontSize: '0.9rem' }}>
-                  {lastCompletedReport.totalReps ?? 0} reps &middot; Posture {lastCompletedReport.avgPostureScore ?? '—'} &middot; Risk {lastCompletedReport.injuryRiskScore ?? 0}%
+                  Last session complete — your report is ready.
                 </p>
               </div>
               <Link to="/report/latest" className="btn-secondary" style={{ padding: '8px 20px', fontSize: '0.85rem' }}>
@@ -109,22 +123,22 @@ export default function Dashboard() {
         <div className="dashboard-grid">
           <QuickAction
             icon={Activity}
-            title="Start a Session"
-            desc="Begin tracking your workout in real time."
+            title="Start Session"
+            desc="Begin a new workout and track your form live."
             href="/session"
             accent
           />
           <QuickAction
-            icon={BookOpen}
-            title="Workout Library"
-            desc="Browse guided workout videos by muscle group."
-            href="/workout"
+            icon={Clock}
+            title="View History"
+            desc="Review past sessions and download your reports."
+            href="/history"
           />
           <QuickAction
-            icon={Clock}
-            title="Session History"
-            desc="Review all past sessions and download reports."
-            href="/history"
+            icon={BookOpen}
+            title="My Workouts"
+            desc="Explore guided routines curated for you."
+            href="/workout"
           />
         </div>
 
@@ -132,23 +146,29 @@ export default function Dashboard() {
         <section className="card fade-up">
           <div className="section-header" style={{ marginBottom: '24px' }}>
             <Shield className="icon-md text-accent" />
-            <h2 className="section-title">How to use FitMon</h2>
+            <h2 className="section-title">Getting Started</h2>
           </div>
           <div className="dashboard-checklist-grid">
             {[
-              { num: '01', text: 'Go to Session and position yourself clearly in front of your camera.' },
-              { num: '02', text: 'Press Start and follow the on-screen posture guidance as you exercise.' },
-              { num: '03', text: 'End the session when you\'re done to generate your performance report.' },
-              { num: '04', text: 'Visit History to track your scores and progress over time.' },
+              { num: '01', text: 'Go to Session to begin tracking your workout.' },
+              { num: '02', text: 'Follow the on-screen guidance for posture and form.' },
+              { num: '03', text: 'Complete your session to generate a report.' },
+              { num: '04', text: 'Check History to track your progress over time.' },
             ].map((item) => (
               <div key={item.num} className="dashboard-checklist-item" style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                 <span style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 700,
-                  color: 'var(--accent)', fontSize: '0.75rem', flexShrink: 0, marginTop: '2px'
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 700,
+                  color: 'var(--accent)',
+                  fontSize: '0.75rem',
+                  flexShrink: 0,
+                  marginTop: '2px',
                 }}>
                   {item.num}
                 </span>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>{item.text}</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                  {item.text}
+                </p>
               </div>
             ))}
           </div>
@@ -165,7 +185,7 @@ function QuickAction({ icon, title, desc, href, accent }) {
       <div className="card dashboard-card" style={{
         height: '100%',
         borderColor: accent ? 'var(--accent-border)' : 'var(--border)',
-        background: accent ? 'rgba(0,229,160,0.04)' : 'var(--card)',
+        background: accent ? 'var(--accent-dim)' : 'var(--card)',
       }}>
         <div className={`feature-icon ${accent ? 'icon-green' : 'icon-blue'}`}>
           {createElement(icon, { className: 'icon-md' })}
