@@ -47,8 +47,8 @@ async function receiveSensorReading(req, res) {
       });
     }
 
-    updateFSR(session, sensorValue, normalizedTimestamp);
-    emitSensorUpdate(io, session, sensorValue);
+    const normalizedValue = updateFSR(session, sensorValue, normalizedTimestamp);
+    emitSensorUpdate(io, session, normalizedValue);
 
     return res.json({
       success: true,
@@ -56,7 +56,7 @@ async function receiveSensorReading(req, res) {
       mode: 'session',
       sessionId,
       timestamp: normalizedTimestamp,
-      value: sensorValue,
+      value: normalizedValue,
     });
   }
 
@@ -68,9 +68,13 @@ async function receiveSensorReading(req, res) {
     });
   }
 
+  let normalizedValue = null;
   activeSessions.forEach((activeSession) => {
-    updateFSR(activeSession, sensorValue, normalizedTimestamp);
-    emitSensorUpdate(io, activeSession, sensorValue);
+    const updatedValue = updateFSR(activeSession, sensorValue, normalizedTimestamp);
+    if (normalizedValue === null) {
+      normalizedValue = updatedValue;
+    }
+    emitSensorUpdate(io, activeSession, updatedValue);
   });
 
   return res.json({
@@ -79,7 +83,7 @@ async function receiveSensorReading(req, res) {
     mode: 'broadcast_active_sessions',
     activeSessions: activeSessions.length,
     timestamp: normalizedTimestamp,
-    value: sensorValue,
+    value: normalizedValue ?? 0,
   });
 }
 

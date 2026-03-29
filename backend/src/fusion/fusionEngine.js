@@ -1,11 +1,11 @@
 const { getAverageFSR } = require('../session/sessionStore');
 
 function computeFSRScore(averageFsr) {
-  if (averageFsr <= 0) {
+  if (!Number.isFinite(averageFsr) || averageFsr <= 0) {
     return 0;
   }
 
-  return Math.max(0, Math.min(100, Math.round((averageFsr / 700) * 100)));
+  return Math.max(0, Math.min(100, Math.round(averageFsr)));
 }
 
 function analyzeFusion(session, cvPayload) {
@@ -29,7 +29,7 @@ function analyzeFusion(session, cvPayload) {
     engagementStatus = 'good';
   }
 
-  if (cvPayload.repState === 'UP' && session.fsrWindow.length && averageFsr < 350) {
+  if (cvPayload.repState === 'UP' && session.fsrWindow.length && averageFsr < 35) {
     alerts.push('Peak contraction looks soft. Hold and squeeze at the top of the curl.');
   }
 
