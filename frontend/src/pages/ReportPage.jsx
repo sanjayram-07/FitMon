@@ -1,22 +1,10 @@
 import { createElement, useState } from 'react';
-import jsPDF from 'jspdf';
 import { useLocation, Link } from 'react-router-dom';
+import { buildReportPdf, getReportPdfFileName } from '../utils/reportPdf';
 import {
   ArrowDownToLine,
-  ArrowLeft,
   Trophy,
-  Target,
-  AlertTriangle,
-  TrendingUp,
-  Clock,
   Repeat,
-  CheckCircle2,
-  XCircle,
-  Shield,
-  Lightbulb,
-  ThumbsUp,
-  Activity,
-  BarChart3,
 } from 'lucide-react';
 
 const CHART_WIDTH = 760;
@@ -30,12 +18,12 @@ export default function ReportPage() {
 
   if (!report) {
     return (
-      <div className="min-h-screen pt-20 flex flex-col items-center justify-center text-center px-6">
-        <div className="glass-card p-12 max-w-md">
-          <Trophy className="w-12 h-12 text-dark-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">No Report Found</h2>
-          <p className="text-dark-300 text-sm mb-6">Complete a session to generate your workout report.</p>
-          <Link to="/session" className="btn-primary inline-flex items-center gap-2 no-underline">
+      <div className="page report-page report-empty">
+        <div className="card report-empty-card">
+          <Trophy className="icon-2xl report-empty-icon" />
+          <h2 className="report-title">No Report Found</h2>
+          <p className="text-secondary">Complete a session to generate your workout report.</p>
+          <Link to="/session" className="btn-primary button-inline">
             Start a Session
           </Link>
         </div>
@@ -53,6 +41,45 @@ export default function ReportPage() {
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   };
 
+  const calculateInjuryRisk = (postureScoreValue, averageFsrValue, repCountValue, backendScore) => {
+    let totalRisk = Number.isFinite(backendScore) ? backendScore : null;
+
+    if (totalRisk === null) {
+      const postureRisk = Math.max(0, 100 - postureScoreValue);
+      const fsrRisk = averageFsrValue < 20
+        ? (20 - averageFsrValue) * 2
+        : averageFsrValue > 80
+          ? (averageFsrValue - 80) * 1.5
+          : 0;
+      const repRisk = repCountValue > 30 ? Math.min((repCountValue - 30) * 1.5, 30) : 0;
+      totalRisk = (postureRisk * 0.5) + (fsrRisk * 0.3) + (repRisk * 0.2);
+    }
+
+    const bounded = Math.max(0, Math.min(100, Math.round(totalRisk)));
+    if (bounded < 25) return { level: 'Low', score: bounded, color: 'success' };
+    if (bounded < 55) return { level: 'Moderate', score: bounded, color: 'warning' };
+    return { level: 'High', score: bounded, color: 'danger' };
+  };
+
+  const averageFsrValue = Number.isFinite(report.avgFsr)
+    ? report.avgFsr
+    : reps.length
+      ? reps.reduce((sum, rep) => sum + (rep.avgFsr ?? 0), 0) / reps.length
+      : 0;
+  const postureScoreValue = report.avgPostureScore ?? 0;
+  const repCountValue = report.totalReps ?? 0;
+  const injuryRisk = calculateInjuryRisk(
+    postureScoreValue,
+    averageFsrValue,
+    repCountValue,
+    report.injuryRiskScore,
+  );
+  const riskBadgeClass = injuryRisk.color === 'success'
+    ? 'badge-success'
+    : injuryRisk.color === 'warning'
+      ? 'badge-warning'
+      : 'badge-danger';
+
   async function handleDownloadPdf() {
     if (isDownloadingPdf) {
       return;
@@ -61,113 +88,12 @@ export default function ReportPage() {
     try {
       setPdfError('');
       setIsDownloadingPdf(true);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 14;
-      let y = 18;
-
-      const addSectionTitle = (title) => {
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(13);
-        pdf.setTextColor(28, 24, 25);
-        pdf.text(title, margin, y);
-        y += 7;
-      };
-
-      const addBodyText = (text) => {
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-        pdf.setTextColor(70, 70, 70);
-        const lines = pdf.splitTextToSize(text, pageWidth - margin * 2);
-        pdf.text(lines, margin, y);
-        y += (lines.length * 5) + 2;
-      };
-
-      const ensureSpace = (needed = 20) => {
-        if (y + needed > pageHeight - 14) {
-          pdf.addPage();
-          y = 18;
-        }
-      };
-
-      pdf.setFillColor(255, 123, 84);
-      pdf.roundedRect(margin, y, pageWidth - margin * 2, 26, 4, 4, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(20);
-      pdf.text('FitMon Session Report', margin + 6, y + 11);
-      pdf.setFontSize(10);
-      pdf.text(`Generated: ${new Date(report.startedAt).toLocaleString()}`, margin + 6, y + 19);
-      y += 36;
-
-      addSectionTitle('Overview');
-      addBodyText(insights.summary || `You completed ${report.totalReps} reps with ${report.accuracy}% accuracy.`);
-
-      ensureSpace(30);
-      const metrics = [
-        ['Grade', grade],
-        ['Total Reps', String(report.totalReps)],
-        ['Accuracy', `${report.accuracy}%`],
-        ['Duration', formatDuration(report.duration)],
-        ['Posture', String(report.avgPostureScore)],
-        ['Injury Risk', `${report.injuryRiskScore}%`],
-      ];
-
-      let metricX = margin;
-      metrics.forEach(([label, value], index) => {
-        pdf.setFillColor(247, 244, 241);
-        pdf.roundedRect(metricX, y, 28, 20, 3, 3, 'F');
-        pdf.setTextColor(100, 100, 100);
-        pdf.setFontSize(8);
-        pdf.text(label, metricX + 3, y + 6);
-        pdf.setTextColor(30, 30, 30);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(12);
-        pdf.text(value, metricX + 3, y + 14);
-        metricX += 31;
-        if ((index + 1) % 3 === 0) {
-          y += 24;
-          metricX = margin;
-        }
-      });
-      y += 6;
-
-      ensureSpace(55);
-      addSectionTitle('Rep Performance');
-      drawPerformanceChart(pdf, reps, margin, y, pageWidth - margin * 2, 52);
-      y += 60;
-
-      ensureSpace(35);
-      addSectionTitle('Risk Summary');
-      addBodyText(`Injury risk score: ${report.injuryRiskScore}%. Incorrect reps: ${report.incorrectReps}. Ineffective reps: ${report.ineffectiveReps}.`);
-
-      if (insights.improvements?.length) {
-        ensureSpace(30);
-        addSectionTitle('Improvements');
-        insights.improvements.forEach((item) => addBodyText(`- ${item}`));
+      const pdf = buildReportPdf(report);
+      if (!pdf) {
+        setPdfError('Report data is not available yet.');
+        return;
       }
-
-      if (insights.warnings?.length || insights.injuryExplanation) {
-        ensureSpace(30);
-        addSectionTitle('Warnings');
-        insights.warnings?.forEach((warning) => addBodyText(`- ${warning}`));
-        if (insights.injuryExplanation) addBodyText(insights.injuryExplanation);
-      }
-
-      if (insights.positiveFeedback?.length) {
-        ensureSpace(30);
-        addSectionTitle('What Went Well');
-        insights.positiveFeedback.forEach((item) => addBodyText(`- ${item}`));
-      }
-
-      if (reps.length) {
-        ensureSpace(45);
-        addSectionTitle('Rep History');
-        drawRepTable(pdf, reps, margin, y, pageWidth - margin * 2);
-      }
-
-      pdf.save(`fitmon-report-${report.sessionId || 'session'}.pdf`);
+      pdf.save(getReportPdfFileName(report));
     } catch (error) {
       setPdfError(error?.message || 'PDF generation failed in this browser session.');
     } finally {
@@ -176,40 +102,29 @@ export default function ReportPage() {
   }
 
   return (
-    <div className="min-h-screen pt-20 pb-12 px-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="report-hero animate-fade-in">
-          <div className="flex items-start gap-4">
-            <Link to="/session" className="p-2 rounded-xl bg-dark-700 hover:bg-dark-600 transition-colors no-underline text-dark-200 shrink-0">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div>
-              <p className="report-kicker">Post-Session Intelligence</p>
-              <h1 className="text-3xl md:text-4xl font-black text-white">Your curl report is ready</h1>
-              <p className="text-sm text-dark-300 mt-2">
-                {new Date(report.startedAt).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </p>
-            </div>
-          </div>
+    <div className="page report-page">
+      <div className="container container-narrow" style={{ maxWidth: '800px', padding: '32px 24px' }}>
+        <div className={`${riskBadgeClass}`} style={{ fontSize: '0.85rem', padding: '8px 18px' }}>
+          {injuryRisk.level} Risk · {injuryRisk.score}%
+        </div>
 
-          <button
-            type="button"
-            onClick={handleDownloadPdf}
-            disabled={isDownloadingPdf}
-            className="btn-primary inline-flex items-center gap-2 disabled:opacity-60"
-          >
-            <ArrowDownToLine className="w-4 h-4" />
-            {isDownloadingPdf ? 'Generating PDF...' : 'Download PDF Report'}
-          </button>
+        <div style={{ marginTop: '24px', marginBottom: '32px' }}>
+          <p className="section-label">Session Report</p>
+          <h1 className="page-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)' }}>
+            Your workout report
+          </h1>
+          <p className="text-secondary" style={{ marginTop: '8px' }}>
+            {new Date(report.startedAt).toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </p>
         </div>
 
         {pdfError ? (
-          <div className="camera-error relative top-auto left-auto right-auto mt-4">
+          <div className="camera-error camera-error-inline report-error">
             <div>
               <strong>PDF download issue</strong>
               <p>{pdfError}</p>
@@ -217,174 +132,145 @@ export default function ReportPage() {
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-6 mt-8">
-          <div className="glass-card p-8 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-            <div className="flex items-start gap-6">
-              <div className={`grade-badge grade-${grade} shrink-0`}>{grade}</div>
-              <div>
-                <h2 className="text-lg font-bold text-white mb-2">Overall Performance</h2>
-                <p className="text-sm text-dark-200 leading-relaxed">
-                  {insights.summary || `You completed ${report.totalReps} reps with ${report.accuracy}% accuracy.`}
-                </p>
-              </div>
-            </div>
+        <section>
+          <h2 className="report-section-title">Overview</h2>
+          <div style={{ display: 'grid', gap: '12px', marginTop: '16px' }}>
+            <MetricRow label="Total Reps" value={report.totalReps} />
+            <MetricRow label="Accuracy" value={`${report.accuracy}%`} />
+            <MetricRow label="Duration" value={formatDuration(report.duration)} />
+            <MetricRow label="Posture Score" value={report.avgPostureScore} />
+            <MetricRow label="Pressure" value={Math.round(averageFsrValue || 0)} />
+            <MetricRow label="Injury Risk" value={`${injuryRisk.score}% (${injuryRisk.level})`} />
           </div>
+        </section>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-            <MetricCard icon={Repeat} label="Total Reps" value={report.totalReps} />
-            <MetricCard icon={Target} label="Accuracy" value={`${report.accuracy}%`} color={report.accuracy >= 70 ? 'text-success' : 'text-warning'} />
-            <MetricCard icon={Clock} label="Duration" value={formatDuration(report.duration)} />
-            <MetricCard icon={TrendingUp} label="Posture Score" value={report.avgPostureScore} color={report.avgPostureScore >= 70 ? 'text-success' : 'text-warning'} />
-          </div>
+        <section style={{ marginTop: '32px' }}>
+          <h2 className="report-section-title">Summary</h2>
+          <p className="text-secondary" style={{ marginTop: '16px' }}>
+            {insights.summary || `You completed ${report.totalReps} reps with ${report.accuracy}% accuracy.`}
+          </p>
+        </section>
 
-          <div className="grid lg:grid-cols-[1.55fr_0.95fr] gap-6 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-            <div className="glass-card p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <BarChart3 className="w-5 h-5 text-accent-primary" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Rep Performance Graph</h3>
-              </div>
-              <RepPerformanceChart reps={reps} />
+        {insights.improvements?.length ? (
+          <section style={{ marginTop: '32px' }}>
+            <h2 className="report-section-title">Improvements</h2>
+            <ul className="report-list" style={{ marginTop: '16px' }}>
+              {insights.improvements.map((item) => (
+                <li key={item} className="report-list-item">
+                  <span className="text-warning">{'->'}</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {insights.positiveFeedback?.length ? (
+          <section style={{ marginTop: '32px' }}>
+            <h2 className="report-section-title">What Went Well</h2>
+            <ul className="report-list" style={{ marginTop: '16px' }}>
+              {insights.positiveFeedback.map((item) => (
+                <li key={item} className="report-list-item">
+                  <span className="text-success">OK</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {(insights.warnings?.length || insights.injuryExplanation) ? (
+          <section style={{ marginTop: '32px' }}>
+            <h2 className="report-section-title">Caution</h2>
+            <div className="report-warning-body" style={{ marginTop: '16px' }}>
+              {insights.warnings?.map((warning) => <p key={warning}>Alert: {warning}</p>)}
+              {insights.injuryExplanation ? <p>{insights.injuryExplanation}</p> : null}
             </div>
+          </section>
+        ) : null}
 
-            <div className="glass-card p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Activity className="w-5 h-5 text-warning" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Injury Risk Trend</h3>
-              </div>
-              <RiskGauge riskScore={report.injuryRiskScore} />
-              <div className="grid grid-cols-3 gap-3 mt-5">
-                <MiniRiskMetric label="Correct" value={report.correctReps} tone="text-success" />
-                <MiniRiskMetric label="Incorrect" value={report.incorrectReps} tone="text-danger" />
-                <MiniRiskMetric label="Ineffective" value={report.ineffectiveReps} tone="text-warning" />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-4 animate-fade-in" style={{ animationDelay: '0.35s' }}>
-            <div className="glass-card p-6 flex items-center gap-4">
-              <CheckCircle2 className="w-8 h-8 text-success shrink-0" />
-              <div>
-                <p className="text-2xl font-bold text-white">{report.correctReps}</p>
-                <p className="text-xs text-dark-300">Correct Reps</p>
-              </div>
-            </div>
-            <div className="glass-card p-6 flex items-center gap-4">
-              <XCircle className="w-8 h-8 text-danger shrink-0" />
-              <div>
-                <p className="text-2xl font-bold text-white">{report.incorrectReps}</p>
-                <p className="text-xs text-dark-300">Incorrect Reps</p>
-              </div>
-            </div>
-            <div className="glass-card p-6 flex items-center gap-4">
-              <Shield className="w-8 h-8 text-warning shrink-0" />
-              <div>
-                <p className="text-2xl font-bold text-white">{report.injuryRiskScore}%</p>
-                <p className="text-xs text-dark-300">Injury Risk</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
-            {insights.improvements?.length ? (
-              <div className="glass-card p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Lightbulb className="w-5 h-5 text-warning" />
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">Improvements</h3>
-                </div>
-                <ul className="flex flex-col gap-3">
-                  {insights.improvements.map((item) => (
-                    <li key={item} className="flex items-start gap-3 text-sm text-dark-200">
-                      <span className="text-warning font-bold mt-0.5">{'->'}</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            {insights.positiveFeedback?.length ? (
-              <div className="glass-card p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <ThumbsUp className="w-5 h-5 text-success" />
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">What You Did Well</h3>
-                </div>
-                <ul className="flex flex-col gap-3">
-                  {insights.positiveFeedback.map((item) => (
-                    <li key={item} className="flex items-start gap-3 text-sm text-dark-200">
-                      <span className="text-success font-bold mt-0.5">OK</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-
-          {(insights.warnings?.length || insights.injuryExplanation) ? (
-            <div className="glass-card p-6 border-danger/20 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-              <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="w-5 h-5 text-danger" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Caution</h3>
-              </div>
-              <div className="flex flex-col gap-2 text-sm text-dark-200">
-                {insights.warnings?.map((warning) => <p key={warning}>Alert: {warning}</p>)}
-                {insights.injuryExplanation ? <p>{insights.injuryExplanation}</p> : null}
-              </div>
-            </div>
-          ) : null}
-
-          {reps.length ? (
-            <div className="glass-card p-6 animate-fade-in" style={{ animationDelay: '0.6s' }}>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Rep History</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-dark-600">
-                      <th className="text-left py-2 px-3 text-dark-300 font-medium">Rep</th>
-                      <th className="text-left py-2 px-3 text-dark-300 font-medium">Form Score</th>
-                      <th className="text-left py-2 px-3 text-dark-300 font-medium">FSR Score</th>
-                      <th className="text-left py-2 px-3 text-dark-300 font-medium">Avg FSR</th>
-                      <th className="text-left py-2 px-3 text-dark-300 font-medium">ROM</th>
-                      <th className="text-left py-2 px-3 text-dark-300 font-medium">Fusion</th>
-                      <th className="text-left py-2 px-3 text-dark-300 font-medium">Status</th>
+        {reps.length ? (
+          <section style={{ marginTop: '32px' }}>
+            <h2 className="report-section-title">Rep History</h2>
+            <div className="report-table-wrap" style={{ marginTop: '16px' }}>
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>Rep</th>
+                    <th>Form Score</th>
+                    <th>Pressure Score</th>
+                    <th>Avg Pressure</th>
+                    <th>Range</th>
+                    <th>Consistency</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reps.map((rep) => (
+                    <tr key={rep.repNumber}>
+                      <td className="table-strong">#{rep.repNumber}</td>
+                      <td>
+                        <span className={`table-strong ${rep.formScore >= 60 ? 'text-success' : 'text-danger'}`}>{rep.formScore}</span>
+                      </td>
+                      <td className="text-secondary">{rep.fsrScore ?? '-'}</td>
+                      <td className="text-secondary">{rep.avgFsr ?? '-'}</td>
+                      <td className="text-secondary">
+                        {rep.minAngle !== null && rep.maxAngle !== null ? `${Math.round(rep.minAngle)}° - ${Math.round(rep.maxAngle)}°` : '-'}
+                      </td>
+                      <td className="text-secondary">{rep.fusionScore ?? '-'}</td>
+                      <td>
+                        {rep.correct ? (
+                          <span className="text-success">Good</span>
+                        ) : (
+                          <span className="text-danger">Needs Work</span>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {reps.map((rep) => (
-                      <tr key={rep.repNumber} className="border-b border-dark-700/50">
-                        <td className="py-2 px-3 text-dark-100 font-medium">#{rep.repNumber}</td>
-                        <td className="py-2 px-3">
-                          <span className={`font-bold ${rep.formScore >= 60 ? 'text-success' : 'text-danger'}`}>{rep.formScore}</span>
-                        </td>
-                        <td className="py-2 px-3 text-dark-200">{rep.fsrScore ?? '-'}</td>
-                        <td className="py-2 px-3 text-dark-200">{rep.avgFsr ?? '-'}</td>
-                        <td className="py-2 px-3 text-dark-200">
-                          {rep.minAngle !== null && rep.maxAngle !== null ? `${Math.round(rep.minAngle)}° - ${Math.round(rep.maxAngle)}°` : '-'}
-                        </td>
-                        <td className="py-2 px-3 text-dark-200">{rep.fusionScore ?? '-'}</td>
-                        <td className="py-2 px-3">
-                          {rep.correct ? (
-                            <span className="text-success font-medium">Good</span>
-                          ) : (
-                            <span className="text-danger font-medium">Needs Work</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ) : null}
+          </section>
+        ) : null}
+
+        <div className="report-footer" style={{ marginTop: '40px' }}>
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            className="btn-secondary button-inline"
+          >
+            <ArrowDownToLine className="icon-sm" />
+            {isDownloadingPdf ? 'Generating PDF...' : 'Download Report'}
+          </button>
         </div>
 
-        <div className="text-center mt-10 animate-fade-in" style={{ animationDelay: '0.7s' }}>
-          <Link to="/session" className="btn-primary inline-flex items-center gap-2 no-underline">
-            <Repeat className="w-4 h-4" />
+        <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
+          <Link to="/session" className="btn-primary button-inline">
+            <Repeat className="icon-sm" />
             Start New Session
           </Link>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MetricRow({ label, value }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '12px 0',
+        borderBottom: '1px solid var(--border)',
+      }}
+    >
+      <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{label}</span>
+      <span style={{ color: 'var(--text)', fontFamily: 'var(--font-display)', fontWeight: 600 }}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -419,25 +305,25 @@ function RepPerformanceChart({ reps }) {
           const y = topPadding + usableHeight - ((tick / maxScore) * usableHeight);
           return (
             <g key={tick}>
-              <line x1={leftPadding} x2={CHART_WIDTH - 12} y1={y} y2={y} stroke="rgba(255,255,255,0.08)" strokeDasharray="4 8" />
-              <text x={0} y={y + 4} fill="rgba(213,194,187,0.65)" fontSize="11">
+              <line x1={leftPadding} x2={CHART_WIDTH - 12} y1={y} y2={y} stroke="var(--border)" strokeDasharray="4 8" />
+              <text x={0} y={y + 4} fill="var(--muted)" fontSize="11">
                 {tick}
               </text>
             </g>
           );
         })}
 
-        <polyline fill="none" stroke="#ff7b54" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={lineFromKey('formScore')} />
-        <polyline fill="none" stroke="#7ad7f0" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={lineFromKey('fsrScore')} />
-        <polyline fill="none" stroke="#f7c56b" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={lineFromKey('fusionScore')} />
+        <polyline fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={lineFromKey('formScore')} />
+        <polyline fill="none" stroke="var(--blue)" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={lineFromKey('fsrScore')} />
+        <polyline fill="none" stroke="var(--warning)" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={lineFromKey('fusionScore')} />
 
         {reps.map((rep, index) => {
           const x = leftPadding + (stepX * index);
           const formY = topPadding + usableHeight - (((rep.formScore ?? 0) / maxScore) * usableHeight);
           return (
             <g key={rep.repNumber}>
-              <circle cx={x} cy={formY} r="5" fill="#ff7b54" />
-              <text x={x} y={CHART_HEIGHT - 6} textAnchor="middle" fill="rgba(213,194,187,0.75)" fontSize="11">
+              <circle cx={x} cy={formY} r="5" fill="var(--accent)" />
+              <text x={x} y={CHART_HEIGHT - 6} textAnchor="middle" fill="var(--muted)" fontSize="11">
                 {rep.repNumber}
               </text>
             </g>
@@ -446,9 +332,9 @@ function RepPerformanceChart({ reps }) {
       </svg>
 
       <div className="report-chart-legend">
-        <LegendDot color="#ff7b54" label="Form Score" />
-        <LegendDot color="#7ad7f0" label="FSR Score" />
-        <LegendDot color="#f7c56b" label="Fusion Score" />
+        <LegendDot color="var(--accent)" label="Form Score" />
+        <LegendDot color="var(--blue)" label="Pressure Score" />
+        <LegendDot color="var(--warning)" label="Consistency Score" />
       </div>
     </div>
   );
@@ -536,10 +422,10 @@ function drawRepTable(pdf, reps, x, startY, width) {
   const columns = [
     ['Rep', 14],
     ['Form', 22],
-    ['FSR', 18],
+    ['Press', 18],
     ['Avg', 20],
-    ['ROM', 30],
-    ['Fusion', 24],
+    ['Range', 30],
+    ['Consist', 24],
     ['Status', 22],
   ];
 
@@ -576,9 +462,9 @@ function drawRepTable(pdf, reps, x, startY, width) {
 
 function MiniRiskMetric({ label, value, tone }) {
   return (
-    <div className="rounded-2xl border border-dark-600 bg-dark-800/70 p-3 text-center">
-      <p className="text-xs uppercase tracking-[0.18em] text-dark-300">{label}</p>
-      <p className={`text-xl font-bold mt-2 ${tone}`}>{value}</p>
+    <div className="card mini-risk-card">
+      <p className="metric-label">{label}</p>
+      <p className={`metric-value ${tone}`}>{value}</p>
     </div>
   );
 }
@@ -593,19 +479,19 @@ function EmptyChartState({ message }) {
 
 function LegendDot({ color, label }) {
   return (
-    <div className="inline-flex items-center gap-2 text-xs text-dark-200">
+    <div className="legend-dot">
       <span className="report-legend-dot" style={{ backgroundColor: color }} />
       <span>{label}</span>
     </div>
   );
 }
 
-function MetricCard({ icon, label, value, color = 'text-white' }) {
+function MetricCard({ icon, label, value, color = 'text-primary' }) {
   return (
-    <div className="glass-card p-5 text-center">
-      {createElement(icon, { className: 'w-5 h-5 text-accent-primary mx-auto mb-2' })}
-      <p className={`text-2xl font-bold ${color} tabular-nums`}>{value}</p>
-      <p className="text-xs text-dark-300 mt-1">{label}</p>
+    <div className="card report-metric">
+      {createElement(icon, { className: 'icon-md text-accent' })}
+      <p className={`metric-value tabular-nums ${color}`}>{value}</p>
+      <p className="metric-label">{label}</p>
     </div>
   );
 }

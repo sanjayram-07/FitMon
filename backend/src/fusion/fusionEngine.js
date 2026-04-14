@@ -1,11 +1,20 @@
 const { getAverageFSR } = require('../session/sessionStore');
 
 function computeFSRScore(averageFsr) {
-  if (averageFsr <= 0) {
+  if (!Number.isFinite(averageFsr) || averageFsr <= 0) {
     return 0;
   }
 
-  return Math.max(0, Math.min(100, Math.round((averageFsr / 700) * 100)));
+  return Math.max(0, Math.min(100, Math.round(averageFsr)));
+}
+
+function computeRepInjuryRisk(cvScore, fsrScore) {
+  const cvValue = Number.isFinite(cvScore) ? cvScore : 0;
+  const fsrValue = Number.isFinite(fsrScore) ? fsrScore : 0;
+  const cvRisk = Math.max(0, Math.min(1, (70 - cvValue) / 40));
+  const fsrRisk = Math.max(0, Math.min(1, (fsrValue - 40) / 60));
+
+  return Math.round(cvRisk * fsrRisk * 100);
 }
 
 function analyzeFusion(session, cvPayload) {
@@ -23,13 +32,12 @@ function analyzeFusion(session, cvPayload) {
     alerts.push('Good motion detected, but sensor engagement is low. Squeeze harder at peak contraction.');
   } else if (cvScore < 45 && fsrScore > 50) {
     engagementStatus = 'injury_risk';
-    session.injuryRiskEvents += 1;
     alerts.push('High force with weak curl mechanics detected. Reduce load and stabilize the elbow.');
   } else if (cvScore >= 70 && fsrScore >= 60) {
     engagementStatus = 'good';
   }
 
-  if (cvPayload.repState === 'UP' && session.fsrWindow.length && averageFsr < 350) {
+  if (cvPayload.repState === 'UP' && session.fsrWindow.length && averageFsr < 35) {
     alerts.push('Peak contraction looks soft. Hold and squeeze at the top of the curl.');
   }
 
@@ -43,4 +51,4 @@ function analyzeFusion(session, cvPayload) {
   };
 }
 
-module.exports = { analyzeFusion };
+module.exports = { analyzeFusion, computeRepInjuryRisk };

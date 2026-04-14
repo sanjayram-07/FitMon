@@ -1,5 +1,5 @@
 import { createElement } from 'react';
-import { Activity, ArrowRight, Shield, Sparkles, TimerReset, BarChart3, HeartPulse } from 'lucide-react';
+import { Activity, ArrowRight, BarChart3, BookOpen, Clock, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
 import useSessionStore from '../stores/useSessionStore';
@@ -13,92 +13,189 @@ export default function Dashboard() {
   const engagementStatus = useSessionStore((state) => state.engagementStatus);
   const lastCompletedReport = useSessionStore((state) => state.lastCompletedReport);
 
-  const dashboardMetrics = sessionActive
-    ? {
-        title: 'Live Session Snapshot',
-        repValue: repCount,
-        postureValue: postureScore,
-        fsrValue: Math.round(averageFsr || 0),
-        riskValue: engagementStatus,
-      }
-    : {
-        title: 'Latest Session Snapshot',
-        repValue: lastCompletedReport?.totalReps ?? 0,
-        postureValue: lastCompletedReport?.avgPostureScore ?? 0,
-        fsrValue: Math.round(lastCompletedReport?.perRepData?.at?.(-1)?.avgFsr ?? 0),
-        riskValue: `${lastCompletedReport?.injuryRiskScore ?? 0}%`,
-      };
+  const firstName = user?.name?.split(' ')[0] || 'Trainee';
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  const metrics = sessionActive
+    ? [
+        { label: 'Reps', value: repCount, tone: 'metric-value--accent' },
+        { label: 'Posture Score', value: postureScore, tone: 'metric-value--accent' },
+        { label: 'Pressure', value: Math.round(averageFsr || 0), tone: 'metric-value--blue' },
+        { label: 'Form Quality', value: engagementStatus || '—', tone: 'metric-value--accent' },
+      ]
+    : [
+        { label: 'Reps', value: lastCompletedReport?.totalReps ?? '—', tone: 'metric-value--accent' },
+        { label: 'Posture Score', value: lastCompletedReport?.avgPostureScore ?? '—', tone: 'metric-value--accent' },
+        { label: 'Pressure', value: Math.round(lastCompletedReport?.perRepData?.at?.(-1)?.avgFsr ?? 0) || '—', tone: 'metric-value--blue' },
+        { label: 'Injury Risk', value: lastCompletedReport ? `${lastCompletedReport?.injuryRiskScore ?? 0}%` : '—', tone: 'metric-value--danger' },
+      ];
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-6">
-      <div className="max-w-6xl mx-auto flex flex-col gap-6">
-        <section className="glass-card p-8 lg:p-10">
-          <div className="flex flex-wrap items-start justify-between gap-6">
+    <div className="dashboard-page" style={{ paddingTop: '96px' }}>
+      <div className="container">
+
+        {/* ── LIVE SESSION BANNER ── */}
+        {sessionActive && (
+          <section
+            className="card live-banner live-session-banner fade-up"
+            style={{
+              background: 'var(--accent-dim)',
+              borderColor: 'var(--accent-border)',
+              boxShadow: 'var(--shadow-glow)',
+            }}
+          >
+            <span
+              className="live-dot"
+              aria-hidden
+              style={{
+                background: 'var(--accent)',
+                boxShadow: 'var(--shadow-glow)',
+              }}
+            />
             <div>
-              <p className="text-sm uppercase tracking-[0.25em] text-dark-300">Trainee Dashboard</p>
-              <h1 className="text-4xl font-black text-white mt-3">Welcome back, {user?.name?.split(' ')[0] || 'Athlete'}</h1>
-              <p className="text-dark-200 mt-4 max-w-2xl">
-                Your dashboard now reflects the current live session when active, and falls back to the most recent completed report after session end.
+              <p style={{ color: 'var(--text)', fontWeight: 500 }}>
+                Session in progress —{' '}
+                <Link to="/session" style={{ color: 'var(--accent)' }}>
+                  Resume Session →
+                </Link>
               </p>
             </div>
+          </section>
+        )}
 
-            <Link to="/session" className="btn-primary inline-flex items-center gap-2 no-underline">
-              {sessionActive ? 'Resume Live Session' : 'Start Bicep Curl Session'}
-              <ArrowRight className="w-4 h-4" />
+        {/* ── GREETING ── */}
+        <section className="card dashboard-hero-card fade-up">
+          <div className="dashboard-hero">
+            <div>
+              <p className="section-label">Dashboard</p>
+              <h1 className="page-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', marginBottom: '12px' }}>
+                {greeting}, {firstName}
+              </h1>
+              <p className="text-secondary" style={{ maxWidth: '440px' }}>
+                Keep your training consistent and watch your form improve session by session.
+              </p>
+            </div>
+            <Link to="/session" className="btn-primary button-inline">
+              {sessionActive ? 'Resume Session' : 'Start Session'}
+              <ArrowRight className="icon-sm" />
             </Link>
           </div>
         </section>
 
-        <section className="glass-card p-8">
-          <div className="flex items-center gap-3 mb-5">
-            <BarChart3 className="w-5 h-5 text-accent-primary" />
-            <h2 className="text-xl font-bold text-white">{dashboardMetrics.title}</h2>
+        {/* ── LAST REPORT BANNER ── */}
+        {lastCompletedReport && !sessionActive && (
+          <section className="card report-card fade-up" style={{ padding: '20px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <p className="section-label" style={{ marginBottom: '4px' }}>Last Session</p>
+                <p className="text-secondary" style={{ fontSize: '0.9rem' }}>
+                  Last session complete — your report is ready.
+                </p>
+              </div>
+              <Link to="/report/latest" className="btn-secondary" style={{ padding: '8px 20px', fontSize: '0.85rem' }}>
+                View Report →
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {/* ── METRICS ── */}
+        <section className="card fade-up">
+          <div className="section-header">
+            <BarChart3 className="icon-md text-accent" />
+            <h2 className="section-title">
+              {sessionActive ? 'Live Session' : 'Last Session Snapshot'}
+            </h2>
           </div>
-          <div className="grid md:grid-cols-4 gap-4">
-            <SnapshotCard label="Reps" value={dashboardMetrics.repValue} />
-            <SnapshotCard label="Posture" value={dashboardMetrics.postureValue} />
-            <SnapshotCard label="FSR" value={dashboardMetrics.fsrValue} />
-            <SnapshotCard label="Risk / Engage" value={dashboardMetrics.riskValue} />
+          <div className="metrics-grid">
+            {metrics.map((m) => (
+              <div key={m.label} className="card metric-card" style={{ boxShadow: 'none' }}>
+                <p className="metric-label">{m.label}</p>
+                <p className={`metric-value tabular-nums ${m.tone}`}>{m.value}</p>
+              </div>
+            ))}
           </div>
         </section>
 
-        <section className="grid md:grid-cols-3 gap-4">
-          <DashboardCard icon={Activity} title="Real-time Curl Tracking" copy="Webcam pose inference runs in-browser at 10-15 FPS for low-latency feedback." />
-          <DashboardCard icon={Shield} title="Protected Session Transport" copy="Every API request and Socket.IO connection is verified with a Firebase ID token." />
-          <DashboardCard icon={Sparkles} title="Post-session Insights" copy="Gemini analysis runs only after the session ends, keeping the live loop non-blocking." />
+        {/* ── QUICK ACTIONS ── */}
+        <div className="dashboard-grid">
+          <QuickAction
+            icon={Activity}
+            title="Start Session"
+            desc="Begin a new workout and track your form live."
+            href="/session"
+            accent
+          />
+          <QuickAction
+            icon={Clock}
+            title="View History"
+            desc="Review past sessions and download your reports."
+            href="/history"
+          />
+          <QuickAction
+            icon={BookOpen}
+            title="My Workouts"
+            desc="Explore guided routines curated for you."
+            href="/workout"
+          />
+        </div>
+
+        {/* ── HOW TO USE ── */}
+        <section className="card fade-up">
+          <div className="section-header" style={{ marginBottom: '24px' }}>
+            <Shield className="icon-md text-accent" />
+            <h2 className="section-title">Getting Started</h2>
+          </div>
+          <div className="dashboard-checklist-grid">
+            {[
+              { num: '01', text: 'Go to Session to begin tracking your workout.' },
+              { num: '02', text: 'Follow the on-screen guidance for posture and form.' },
+              { num: '03', text: 'Complete your session to generate a report.' },
+              { num: '04', text: 'Check History to track your progress over time.' },
+            ].map((item) => (
+              <div key={item.num} className="dashboard-checklist-item" style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                <span style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 700,
+                  color: 'var(--accent)',
+                  fontSize: '0.75rem',
+                  flexShrink: 0,
+                  marginTop: '2px',
+                }}>
+                  {item.num}
+                </span>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                  {item.text}
+                </p>
+              </div>
+            ))}
+          </div>
         </section>
 
-        <section className="glass-card p-8">
-          <div className="flex items-center gap-3 mb-4">
-            <TimerReset className="w-5 h-5 text-accent-primary" />
-            <h2 className="text-xl font-bold text-white">Recommended session checklist</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-4 text-sm text-dark-200">
-            <p className="rounded-2xl bg-dark-800/60 border border-dark-600 p-4">Position your full working arm in frame before pressing Start Session.</p>
-            <p className="rounded-2xl bg-dark-800/60 border border-dark-600 p-4">Keep the elbow fixed to your torso to improve stability scoring and rep quality.</p>
-            <p className="rounded-2xl bg-dark-800/60 border border-dark-600 p-4">Stream ESP32 FSR data to the same authenticated socket for fusion-based engagement checks.</p>
-          </div>
-        </section>
       </div>
     </div>
   );
 }
 
-function SnapshotCard({ label, value }) {
+function QuickAction({ icon, title, desc, href, accent }) {
   return (
-    <div className="rounded-3xl border border-dark-600 bg-dark-800/70 p-5">
-      <p className="text-xs uppercase tracking-[0.25em] text-dark-300">{label}</p>
-      <p className="text-3xl font-black text-white mt-3 tabular-nums">{value}</p>
-    </div>
-  );
-}
-
-function DashboardCard({ icon, title, copy }) {
-  return (
-    <div className="glass-card p-6">
-      {createElement(icon, { className: 'w-5 h-5 text-accent-primary' })}
-      <h3 className="text-lg font-bold text-white mt-4">{title}</h3>
-      <p className="text-dark-200 text-sm mt-3">{copy}</p>
-    </div>
+    <Link to={href} style={{ textDecoration: 'none' }}>
+      <div className="card dashboard-card" style={{
+        height: '100%',
+        borderColor: accent ? 'var(--accent-border)' : 'var(--border)',
+        background: accent ? 'var(--accent-dim)' : 'var(--card)',
+      }}>
+        <div className={`feature-icon ${accent ? 'icon-green' : 'icon-blue'}`}>
+          {createElement(icon, { className: 'icon-md' })}
+        </div>
+        <h3 className="card-title">{title}</h3>
+        <p className="text-secondary" style={{ fontSize: '0.88rem', marginTop: '8px' }}>{desc}</p>
+        <div style={{ marginTop: '16px', color: accent ? 'var(--accent)' : 'var(--muted)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          Open <ArrowRight style={{ width: '14px', height: '14px' }} />
+        </div>
+      </div>
+    </Link>
   );
 }

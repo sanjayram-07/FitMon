@@ -2,6 +2,29 @@ const { v4: uuidv4 } = require('uuid');
 
 const sessions = new Map();
 
+const FSR_MIN = Number(process.env.FSR_MIN);
+const FSR_MAX = Number(process.env.FSR_MAX);
+const FSR_RANGE = {
+  min: Number.isFinite(FSR_MIN) ? FSR_MIN : 0,
+  max: Number.isFinite(FSR_MAX) ? FSR_MAX : 1023,
+};
+
+function normalizeFsrPercent(rawValue) {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  const { min, max } = FSR_RANGE;
+  if (max <= min) {
+    return 0;
+  }
+
+  const clamped = Math.max(min, Math.min(max, value));
+  const percent = Math.round(((clamped - min) / (max - min)) * 100);
+  return Math.max(0, Math.min(100, percent));
+}
+
 function createSession({ socketId, uid, email }) {
   const session = {
     id: uuidv4(),
@@ -22,7 +45,8 @@ function createSession({ socketId, uid, email }) {
     },
     fsrWindow: [],
     ineffectiveReps: 0,
-    injuryRiskEvents: 0,
+    injuryRiskSum: 0,
+    injuryRiskCount: 0,
   };
 
   sessions.set(session.id, session);
@@ -64,13 +88,26 @@ function addWarning(session, warning) {
   });
 }
 
+function addInjuryRisk(session, repRiskPercent) {
+  const value = Number(repRiskPercent);
+  if (!Number.isFinite(value)) {
+    return;
+  }
+
+  session.injuryRiskSum += Math.max(0, Math.min(100, value));
+  session.injuryRiskCount += 1;
+}
+
 function updateFSR(session, value, timestamp) {
   const normalizedTimestamp = timestamp || Date.now();
-  session.latestFSR = { value, timestamp: normalizedTimestamp };
-  session.fsrWindow.push({ value, timestamp: normalizedTimestamp });
+  const normalizedValue = normalizeFsrPercent(value);
+  session.latestFSR = { value: normalizedValue, timestamp: normalizedTimestamp };
+  session.fsrWindow.push({ value: normalizedValue, timestamp: normalizedTimestamp });
 
   const cutoff = normalizedTimestamp - 500;
   session.fsrWindow = session.fsrWindow.filter((entry) => entry.timestamp >= cutoff);
+
+  return normalizedValue;
 }
 
 function getAverageFSR(session) {
@@ -101,6 +138,7 @@ function recordRep(session, payload) {
     avgFsr: payload.avgFsr ?? null,
     fsrScore: payload.fsrScore ?? null,
     fusionScore: payload.fusionScore ?? null,
+    injuryRisk: payload.injuryRisk ?? null,
     engagementStatus: payload.engagementStatus ?? 'no_sensor',
     completedAt: Date.now(),
   });
@@ -110,11 +148,12 @@ function summarizeSession(session) {
   const avgPostureScore = session.frameCount
     ? Math.round(session.postureScoreSum / session.frameCount)
     : 0;
+  const avgFsr = Math.round(getAverageFSR(session));
   const accuracy = session.totalReps
     ? Math.round((session.correctReps / session.totalReps) * 100)
     : 0;
-  const injuryRiskScore = session.totalReps
-    ? Math.min(100, Math.round((session.injuryRiskEvents / session.totalReps) * 100))
+  const injuryRiskScore = session.injuryRiskCount
+    ? Math.round(session.injuryRiskSum / session.injuryRiskCount)
     : 0;
 
   return {
@@ -129,6 +168,7 @@ function summarizeSession(session) {
     incorrectReps: session.incorrectReps,
     accuracy,
     avgPostureScore,
+    avgFsr,
     ineffectiveReps: session.ineffectiveReps,
     injuryRiskScore,
     warnings: session.warnings,
@@ -148,6 +188,7 @@ module.exports = {
   getSessionBySocket,
   updateFrame,
   addWarning,
+  addInjuryRisk,
   updateFSR,
   recordRep,
   summarizeSession,

@@ -1,9 +1,7 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Play, Square } from 'lucide-react';
-import BlurText from '../components/BlurText';
 import FeedbackPanel from '../components/FeedbackPanel';
-import ScrollFloat from '../components/ScrollFloat';
 import WebcamFeed from '../components/WebcamFeed';
 import socketService from '../services/socketService';
 import useAuthStore from '../store/useAuthStore';
@@ -21,12 +19,8 @@ export default function SessionPage() {
   const resetSession = useSessionStore((state) => state.resetSession);
 
   useEffect(() => {
-    if (!token) {
-      return undefined;
-    }
-
+    if (!token) return undefined;
     socketService.connect(token);
-
     return () => {
       socketService.disconnect();
       resetSession();
@@ -39,11 +33,9 @@ export default function SessionPage() {
     }
   }, [navigate, report]);
 
-  const handleStart = useCallback(() => {
-    if (!isConnected && token) {
-      socketService.connect(token);
-    }
 
+  const handleStart = useCallback(() => {
+    if (!isConnected && token) socketService.connect(token);
     socketService.startSession();
   }, [isConnected, token]);
 
@@ -51,46 +43,58 @@ export default function SessionPage() {
     socketService.endSession();
   }, []);
 
+  const isReady = poseReady && isConnected;
+
   return (
-    <div className="min-h-screen pt-20 pb-8 px-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6 animate-fade-in">
-          <ScrollFloat containerClassName="session-title-wrap" textClassName="session-title">
-            LIVE SESSION
-          </ScrollFloat>
-          <BlurText
-            text={
-              !sessionActive
-                ? 'Authenticated browser CV is ready. Position yourself in frame and start the curl session.'
-                : 'Session active. FitMon is streaming pose and sensor data through the protected socket.'
-            }
-            delay={80}
-            animateBy="words"
-            direction="top"
-            className="session-subtitle"
-          />
+    <div className="page session-page">
+      <div className="container">
+
+        {/* ── HEADER ── */}
+        <div className="session-header fade-up">
+          <p className="section-label">Live Session</p>
+          <h1 className="page-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', marginBottom: '8px' }}>
+            {sessionActive ? 'Session in Progress' : 'Ready to Start'}
+          </h1>
+          <p className="text-secondary" style={{ maxWidth: '540px' }}>
+            {!sessionActive
+              ? 'Position yourself clearly in front of the camera and press Start when ready.'
+              : 'Keep your form steady. FitMon is tracking your posture and scoring each rep.'}
+          </p>
         </div>
 
-        <div className="grid lg:grid-cols-[1fr_320px] gap-6">
-          <div className="flex flex-col gap-4">
-            <WebcamFeed />
+        {/* ── MAIN GRID ── */}
+        <div className="session-grid">
 
-            {socketError ? (
-              <div className="camera-error relative top-auto left-auto right-auto">
+          {/* LEFT — camera + controls */}
+          <div className="session-stack">
+
+            {/* Camera feed */}
+            <div className="card session-feed-card">
+              <WebcamFeed />
+            </div>
+
+            {/* Socket error */}
+            {socketError && (
+              <div className="camera-error camera-error-inline">
                 <div>
-                  <strong>Socket connection problem</strong>
-                  <p>{socketError}</p>
+                  <strong style={{ display: 'block', marginBottom: '4px' }}>Connection issue</strong>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    Could not connect to the session. Please refresh and try again.
+                  </p>
                 </div>
               </div>
-            ) : null}
+            )}
 
-            <div className="session-control-dock glass-card">
+            {/* Controls */}
+            <div className="card session-control-dock">
               <div className="session-control-copy">
-                <div className={`status-badge ${poseReady && isConnected ? 'connected' : 'disconnected'}`}>
-                  {poseReady && isConnected ? 'Pose + Socket Ready' : 'Preparing Session'}
+                <div className={`status-badge ${isReady ? 'connected' : 'disconnected'}`}>
+                  {isReady ? '● Ready' : '○ Preparing…'}
                 </div>
                 <p className="session-control-note">
-                  Live inference stays in the browser for latency, while the backend orchestrates secure session state and report generation.
+                  {isReady
+                    ? 'Camera and tracking are ready. Press Start when you are.'
+                    : 'Please wait while the camera initialises.'}
                 </p>
               </div>
 
@@ -99,25 +103,25 @@ export default function SessionPage() {
                   <button
                     onClick={handleStart}
                     disabled={!poseReady || !token}
-                    className="btn-primary session-control-button inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+                    className="btn-primary session-control-button button-inline"
                   >
-                    <Play className="w-4 h-4" />
+                    <Play className="icon-sm" />
                     Start Session
                   </button>
                 ) : (
                   <button
                     onClick={handleEnd}
                     disabled={isGeneratingReport}
-                    className="btn-danger session-control-button inline-flex items-center gap-2 disabled:opacity-60"
+                    className="btn-danger session-control-button button-inline"
                   >
                     {isGeneratingReport ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Generating Report...
+                        <Loader2 className="icon-sm spin" />
+                        Generating Report…
                       </>
                     ) : (
                       <>
-                        <Square className="w-4 h-4" />
+                        <Square className="icon-sm" />
                         End Session
                       </>
                     )}
@@ -127,9 +131,11 @@ export default function SessionPage() {
             </div>
           </div>
 
-          <aside className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
+          {/* RIGHT — feedback panel */}
+          <aside className="fade-up fade-up-2">
             <FeedbackPanel />
           </aside>
+
         </div>
       </div>
     </div>

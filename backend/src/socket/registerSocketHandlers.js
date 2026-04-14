@@ -1,6 +1,7 @@
-const { analyzeFusion } = require('../fusion/fusionEngine');
+const { analyzeFusion, computeRepInjuryRisk } = require('../fusion/fusionEngine');
 const { buildSessionReport } = require('../services/reportService');
 const {
+  addInjuryRisk,
   addWarning,
   createSession,
   deleteSession,
@@ -56,12 +57,15 @@ function registerSocketHandlers(io) {
       feedback.forEach((warning) => addWarning(session, warning));
 
       if (payload.repCompleted) {
+        const repInjuryRisk = computeRepInjuryRisk(fusion.cvScore, fusion.fsrScore);
+        addInjuryRisk(session, repInjuryRisk);
         recordRep(session, {
           ...payload,
           avgFsr: fusion.averageFsr,
           fsrScore: fusion.fsrScore,
           peakFsr: session.latestFSR.value,
           fusionScore: fusion.fusionScore,
+          injuryRisk: repInjuryRisk,
           engagementStatus: fusion.engagementStatus,
         });
       }

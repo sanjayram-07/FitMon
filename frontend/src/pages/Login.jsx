@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { signInWithPopup } from 'firebase/auth';
-import { Activity, AlertTriangle, ArrowRight } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { auth, googleProvider, hasFirebaseConfig } from '../firebase/config';
 import useAuthStore from '../store/useAuthStore';
 
@@ -14,105 +14,63 @@ export default function Login() {
   const [localError, setLocalError] = useState('');
 
   useEffect(() => {
-    if (!user) {
-      return;
-    }
-
-    navigate(location.state?.from?.pathname || (user.role === 'mentor' ? '/mentor' : '/dashboard'), {
-      replace: true,
-    });
+    if (!user) return;
+    navigate(location.state?.from?.pathname || '/dashboard', { replace: true });
   }, [location.state, navigate, user]);
 
   async function handleGoogleSignIn() {
     if (!hasFirebaseConfig || !auth || !googleProvider) {
-      setLocalError('Firebase OAuth is not configured. Add the Vite Firebase environment variables first.');
+      setLocalError('Sign-in is not available right now. Please try again later.');
       return;
     }
-
     try {
       setLocalError('');
       setIsSubmitting(true);
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
-      setLocalError(error.message || 'Google sign-in failed.');
+      setLocalError('Sign-in failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-6">
-      <div className="max-w-6xl mx-auto grid lg:grid-cols-[1.1fr_0.9fr] gap-8 items-stretch">
-        <section className="glass-card p-10 lg:p-12">
-          <div className="hero-pill mb-6">
-            <Activity className="h-4 w-4 text-accent-primary" />
-            <span>Secure OAuth access</span>
+    <div className="auth-page" style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+      <div style={{ width: '100%', maxWidth: '400px' }}>
+        <div className="card auth-card" style={{ padding: '40px' }}>
+          <div className="auth-logo">
+            Fit<span className="navbar-dot">·</span>Mon
           </div>
-          <h1 className="text-4xl lg:text-5xl font-black text-white leading-tight">
-            Sign in to launch your
-            <span className="text-accent-primary"> AI workout monitor</span>
-          </h1>
-          <p className="text-dark-200 mt-5 max-w-xl">
-            FitMon uses Firebase Authentication with Google Sign-In and verifies the ID token on the backend before any
-            protected route or real-time socket session opens.
-          </p>
 
-          <div className="grid sm:grid-cols-3 gap-4 mt-8">
-            <ValueCard label="Auth" value="Firebase OAuth" />
-            <ValueCard label="Realtime" value="Token-gated Socket.IO" />
-            <ValueCard label="Storage" value="Firestore users + sessions" />
-          </div>
-        </section>
-
-        <section className="glass-card p-8 lg:p-10 flex flex-col justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-dark-300">Welcome Back</p>
-            <h2 className="text-2xl font-bold text-white mt-3">Continue with Google</h2>
-            <p className="text-dark-200 text-sm mt-3">
-              New accounts are provisioned automatically in Firestore with the default role of trainee.
+          <div style={{ textAlign: 'center' }}>
+            <h2 className="section-title" style={{ fontSize: '1.4rem', marginBottom: '8px' }}>
+              Welcome to FitMon
+            </h2>
+            <p className="text-secondary" style={{ fontSize: '0.9rem' }}>
+              Continue with Google to sign in or create your account.
             </p>
           </div>
 
-          <div className="mt-8">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <button
               type="button"
               onClick={handleGoogleSignIn}
               disabled={isSubmitting}
-              className="btn-primary w-full inline-flex items-center justify-center gap-3 disabled:opacity-60"
+              className="btn-primary button-block"
+              style={{ padding: '14px 28px', fontSize: '0.95rem' }}
             >
-              <span>{isSubmitting ? 'Opening Google...' : 'Sign in with Google'}</span>
-              <ArrowRight className="h-4 w-4" />
+              {isSubmitting ? 'Connecting...' : 'Continue with Google'}
             </button>
 
-            {(localError || storeError) ? (
-              <div className="camera-error relative top-auto left-auto right-auto mt-4">
-                <AlertTriangle className="h-5 w-5" />
-                <div>
-                  <strong>Authentication issue</strong>
-                  <p>{localError || storeError}</p>
-                </div>
+            {(localError || storeError) && (
+              <div className="camera-error camera-error-inline" style={{ marginTop: '4px' }}>
+                <AlertTriangle className="icon-md" style={{ flexShrink: 0 }} />
+                <p style={{ fontSize: '0.85rem' }}>{localError || storeError}</p>
               </div>
-            ) : null}
-
-            <p className="text-xs text-dark-300 mt-5">
-              Trainees are redirected to `/dashboard`; mentors are redirected to `/mentor`.
-            </p>
+            )}
           </div>
-
-          <Link to="/" className="text-sm text-dark-200 hover:text-white no-underline mt-8 inline-flex items-center gap-2">
-            Back to landing
-          </Link>
-        </section>
+        </div>
       </div>
-    </div>
-  );
-}
-
-function ValueCard({ label, value }) {
-  return (
-    <div className="rounded-3xl border border-dark-600 bg-dark-800/60 p-5">
-      <p className="text-xs uppercase tracking-[0.25em] text-dark-300">{label}</p>
-      <p className="text-white font-semibold mt-2">{value}</p>
     </div>
   );
 }

@@ -18,3 +18,8 @@ Thumbs.db
 
 # VS Code
 .vscode/
+
+# backend
+backend/service-account.json
+*.json
+.env

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { Gauge, Target, Zap, AlertTriangle, TrendingUp, Shield } from 'lucide-react';
 import useSessionStore from '../stores/useSessionStore';
 
@@ -11,6 +12,106 @@ export default function FeedbackPanel() {
   const engagementStatus = useSessionStore((s) => s.engagementStatus);
   const feedbackMessages = useSessionStore((s) => s.feedbackMessages);
   const repState = useSessionStore((s) => s.repState);
+  const sessionActive = useSessionStore((s) => s.sessionActive);
+
+  const [displayedReps, setDisplayedReps] = useState(repCount);
+  const [displayedPosture, setDisplayedPosture] = useState(postureScore);
+  const [displayedPressure, setDisplayedPressure] = useState(averageFsr);
+  const [displayedForm, setDisplayedForm] = useState(engagementStatus);
+  const [delayedMessages, setDelayedMessages] = useState([]);
+
+  const queueRef = useRef([]);
+  const seenIdsRef = useRef(new Set());
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (repCount !== displayedReps) {
+      const timer = setTimeout(() => setDisplayedReps(repCount), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [displayedReps, repCount]);
+
+  useEffect(() => {
+    if (postureScore !== displayedPosture) {
+      const timer = setTimeout(() => setDisplayedPosture(postureScore), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [displayedPosture, postureScore]);
+
+  useEffect(() => {
+    if (averageFsr !== displayedPressure) {
+      const timer = setTimeout(() => setDisplayedPressure(averageFsr), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [averageFsr, displayedPressure]);
+
+  useEffect(() => {
+    if (engagementStatus !== displayedForm) {
+      const timer = setTimeout(() => setDisplayedForm(engagementStatus), 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [displayedForm, engagementStatus]);
+
+  useEffect(() => {
+    if (sessionActive) return undefined;
+    setDelayedMessages([]);
+    queueRef.current = [];
+    seenIdsRef.current = new Set();
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    return undefined;
+  }, [sessionActive]);
+
+  useEffect(() => {
+    if (!sessionActive) return undefined;
+    if (!feedbackMessages?.length) {
+      setDelayedMessages([]);
+      return undefined;
+    }
+
+    feedbackMessages.forEach((msg) => {
+      if (!seenIdsRef.current.has(msg.id)) {
+        seenIdsRef.current.add(msg.id);
+        queueRef.current.push(msg);
+      }
+    });
+
+    const pumpQueue = () => {
+      if (!queueRef.current.length) {
+        timerRef.current = null;
+        return;
+      }
+
+      const next = queueRef.current.shift();
+      setDelayedMessages((prev) => {
+        const updated = [...prev, next];
+        return updated.slice(-3);
+      });
+
+      timerRef.current = setTimeout(pumpQueue, 700);
+    };
+
+    if (!timerRef.current) {
+      timerRef.current = setTimeout(pumpQueue, 700);
+    }
+
+    return undefined;
+  }, [feedbackMessages, sessionActive]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
 
   const getRepStateLabel = () => {
     switch (repState) {
@@ -30,95 +131,107 @@ export default function FeedbackPanel() {
     return 'text-danger';
   };
 
-  const getEngagementLabel = () => {
-    switch (engagementStatus) {
-      case 'good': return { text: 'Engaged', color: 'text-success' };
+  const getEngagementLabel = (status) => {
+    switch (status) {
+      case 'good': return { text: 'Strong', badgeClass: 'badge-success' };
       case 'low':
       case 'low_engagement':
-        return { text: 'Low', color: 'text-warning' };
+        return { text: 'Low', badgeClass: 'badge-warning' };
       case 'risk':
       case 'injury_risk':
-        return { text: 'Risk!', color: 'text-danger' };
-      case 'weak_peak': return { text: 'Weak Peak', color: 'text-warning' };
-      case 'sensor_live': return { text: 'Sensor Live', color: 'text-info' };
-      case 'no_sensor': return { text: 'No Sensor', color: 'text-dark-300' };
-      default: return { text: 'Normal', color: 'text-dark-200' };
+        return { text: 'Risk', badgeClass: 'badge-danger' };
+      case 'weak_peak': return { text: 'Weak Peak', badgeClass: 'badge-warning' };
+      case 'sensor_live': return { text: 'Connected', badgeClass: 'badge-blue' };
+      case 'no_sensor': return { text: 'Not Ready', badgeClass: 'badge-blue' };
+      default: return { text: 'Normal', badgeClass: 'badge-blue' };
     }
   };
 
-  const engagement = getEngagementLabel();
+  const engagement = getEngagementLabel(displayedForm);
+  const repsUpdating = displayedReps !== repCount;
+  const postureUpdating = displayedPosture !== postureScore;
+  const pressureUpdating = displayedPressure !== averageFsr;
+  const formUpdating = displayedForm !== engagementStatus;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="glass-card p-6 text-center">
-        <p className="text-xs uppercase tracking-widest text-dark-300 mb-1">Reps</p>
-        <p className="text-6xl font-extrabold text-white tabular-nums">{repCount}</p>
-        <p className="text-sm text-accent-secondary mt-2 font-medium">{getRepStateLabel()}</p>
+    <div className="feedback-panel">
+      <div className="card feedback-hero">
+        <p className="feedback-label">Reps</p>
+        <p className={`feedback-count tabular-nums metric-value ${repsUpdating ? 'metric-updating' : ''}`}>
+          {displayedReps}
+        </p>
+        <p className="feedback-state text-accent">{getRepStateLabel()}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Gauge className="w-4 h-4 text-accent-primary" />
-            <span className="text-xs text-dark-300">Angle</span>
+      <div className="feedback-grid">
+        <div className="card feedback-card">
+          <div className="feedback-row">
+            <Gauge className="icon-sm text-accent" />
+            <span className="feedback-card-label">Angle</span>
           </div>
-          <p className="text-2xl font-bold text-white tabular-nums">{angle}°</p>
+          <p className="feedback-value tabular-nums">{angle}°</p>
         </div>
 
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Target className="w-4 h-4 text-accent-primary" />
-            <span className="text-xs text-dark-300">Posture</span>
+        <div className="card feedback-card">
+          <div className="feedback-row">
+            <Target className="icon-sm text-accent" />
+            <span className="feedback-card-label">Posture</span>
           </div>
-          <p className={`text-2xl font-bold tabular-nums ${getScoreColor(postureScore)}`}>{postureScore}</p>
+          <p
+            className={`feedback-value tabular-nums metric-value ${getScoreColor(displayedPosture)} ${postureUpdating ? 'metric-updating' : ''}`}
+          >
+            {displayedPosture}
+          </p>
         </div>
 
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Shield className="w-4 h-4 text-accent-primary" />
-            <span className="text-xs text-dark-300">Stability</span>
+        <div className="card feedback-card">
+          <div className="feedback-row">
+            <Shield className="icon-sm text-accent" />
+            <span className="feedback-card-label">Stability</span>
           </div>
-          <p className={`text-2xl font-bold tabular-nums ${getScoreColor(elbowStability)}`}>{elbowStability}%</p>
+          <p className={`feedback-value tabular-nums ${getScoreColor(elbowStability)}`}>{elbowStability}%</p>
         </div>
 
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="w-4 h-4 text-accent-primary" />
-            <span className="text-xs text-dark-300">Smooth</span>
+        <div className="card feedback-card">
+          <div className="feedback-row">
+            <TrendingUp className="icon-sm text-accent" />
+            <span className="feedback-card-label">Smooth</span>
           </div>
-          <p className={`text-2xl font-bold tabular-nums ${getScoreColor(smoothness)}`}>{smoothness}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Zap className="w-4 h-4 text-accent-primary" />
-            <span className="text-xs text-dark-300">FSR Value</span>
-          </div>
-          <p className="text-2xl font-bold text-white tabular-nums">{Math.round(averageFsr || 0)}</p>
-        </div>
-
-        <div className="glass-card p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-accent-primary" />
-              <span className="text-xs text-dark-300">Engagement</span>
-            </div>
-            <span className={`text-sm font-bold ${engagement.color}`}>{engagement.text}</span>
-          </div>
+          <p className={`feedback-value tabular-nums ${getScoreColor(smoothness)}`}>{smoothness}</p>
         </div>
       </div>
 
-      {feedbackMessages.length > 0 && (
-        <div className="glass-card p-4 border-warning/30">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-4 h-4 text-warning" />
-            <span className="text-xs text-warning font-semibold uppercase tracking-wider">Feedback</span>
+      <div className="feedback-grid">
+        <div className="card feedback-card">
+          <div className="feedback-row">
+            <Zap className="icon-sm text-accent" />
+            <span className="feedback-card-label">Pressure</span>
           </div>
-          <div className="flex flex-col gap-1.5">
-            {feedbackMessages.map((msg) => (
-              <p key={msg.id} className="text-sm text-dark-100 animate-fade-in">
+          <p className={`feedback-value tabular-nums metric-value ${pressureUpdating ? 'metric-updating' : ''}`}>
+            {Math.round(displayedPressure || 0)}
+          </p>
+        </div>
+
+        <div className="card feedback-card">
+          <div className="feedback-row">
+            <Zap className="icon-sm text-accent" />
+            <span className="feedback-card-label">Form Quality</span>
+          </div>
+          <span className={`feedback-status ${engagement.badgeClass} ${formUpdating ? 'metric-updating' : ''}`}>
+            {engagement.text}
+          </span>
+        </div>
+      </div>
+
+      {delayedMessages.length > 0 && (
+        <div className="card feedback-warning">
+          <div className="feedback-row">
+            <AlertTriangle className="icon-sm text-warning" />
+            <span className="feedback-warning-label">Feedback</span>
+          </div>
+          <div className="feedback-messages">
+            {delayedMessages.map((msg) => (
+              <p key={msg.id} className="text-secondary fade-up">
                 {msg.text}
               </p>
             ))}

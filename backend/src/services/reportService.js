@@ -17,6 +17,17 @@ async function buildSessionReport(summary) {
   const firestoreId = await saveSessionSummary(summary);
   const insights = await generateSessionInsights(summary);
 
+  if (firestoreId) {
+    const db = getDb();
+    await db.collection('sessions').doc(firestoreId).set(
+      {
+        insights,
+        insightsUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
   return {
     ...summary,
     firestoreId,

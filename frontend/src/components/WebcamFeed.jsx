@@ -56,7 +56,7 @@ export default function WebcamFeed() {
 
   const handleUserMediaError = useCallback((error) => {
     const message = error?.name === 'NotReadableError'
-      ? 'Camera is busy. Close the separate Python/OpenCV window and refresh this page.'
+      ? 'Camera is busy. Close other apps using the camera and refresh this page.'
       : 'Camera access failed. Allow browser camera permission and try again.';
 
     setPoseReady(false);
@@ -120,7 +120,7 @@ export default function WebcamFeed() {
         ref={webcamRef}
         audio={false}
         mirrored
-        className="absolute inset-0 h-full w-full object-cover"
+        className="camera-layer"
         onUserMedia={handleUserMedia}
         onUserMediaError={handleUserMediaError}
         videoConstraints={{
@@ -132,7 +132,7 @@ export default function WebcamFeed() {
       />
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 h-full w-full object-cover"
+        className="camera-layer"
         style={{ transform: 'scaleX(-1)' }}
       />
 
@@ -140,7 +140,7 @@ export default function WebcamFeed() {
 
       {cameraError ? (
         <div className="camera-error">
-          <CircleAlert className="h-5 w-5" />
+          <CircleAlert className="icon-md" />
           <div>
             <strong>Camera unavailable</strong>
             <p>{cameraError}</p>
@@ -150,8 +150,8 @@ export default function WebcamFeed() {
 
       <div className="camera-hud">
         <div className="camera-chip">
-          <Camera className="h-4 w-4" />
-          <span>Browser CV Feed</span>
+          <Camera className="icon-sm" />
+          <span>Live Camera</span>
         </div>
 
         {sessionActive && (
@@ -165,18 +165,18 @@ export default function WebcamFeed() {
       <div className="camera-tip">
         {cameraError ? (
           <>
-            <CircleAlert className="h-4 w-4" />
-            <span>Web mode uses only the browser camera. Do not run `cv/main.py` at the same time.</span>
+            <CircleAlert className="icon-sm" />
+            <span>Camera access is unavailable. Close other apps using the camera and refresh.</span>
           </>
         ) : sessionActive ? (
           <>
-            <Activity className="h-4 w-4" />
-            <span>Raise and lower the same arm fully to count reps in the page.</span>
+            <Activity className="icon-sm" />
+            <span>Move smoothly and complete each rep through the full range.</span>
           </>
         ) : (
           <>
-            <CircleAlert className="h-4 w-4" />
-            <span>Allow camera access, then press Start Session to begin tracking.</span>
+            <CircleAlert className="icon-sm" />
+            <span>Allow camera access, then press Start Session to begin.</span>
           </>
         )}
       </div>
@@ -191,7 +191,7 @@ export default function WebcamFeed() {
           <strong>{angle}&deg;</strong>
         </div>
         <div className="camera-stat">
-          <span className="camera-label">Stage</span>
+          <span className="camera-label">Phase</span>
           <strong>{repState}</strong>
         </div>
         <div className="camera-stat">
