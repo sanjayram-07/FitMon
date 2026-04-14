@@ -21,3 +21,5 @@ Thumbs.db
 
 # backend
 backend/service-account.json
+*.json
+.env
