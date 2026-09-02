@@ -25,12 +25,13 @@ function normalizeFsrPercent(rawValue) {
   return Math.max(0, Math.min(100, percent));
 }
 
-function createSession({ socketId, uid, email }) {
+function createSession({ socketId, uid, email, exercise }) {
   const session = {
     id: uuidv4(),
     socketId,
     uid,
     email,
+    exercise: exercise || 'bicep_curl',
     startedAt: Date.now(),
     totalReps: 0,
     correctReps: 0,
@@ -160,6 +161,7 @@ function summarizeSession(session) {
     sessionId: session.id,
     uid: session.uid,
     email: session.email,
+    exercise: session.exercise,
     startedAt: session.startedAt,
     endedAt: Date.now(),
     duration: Math.round((Date.now() - session.startedAt) / 1000),

@@ -9,16 +9,16 @@ import {
 } from '../services/poseDetector';
 import socketService from '../services/socketService';
 import useSessionStore from '../stores/useSessionStore';
-import { BicepCurlEngine } from '../utils/cvLogic';
+import { createEngine } from '../utils/cvLogic';
 
 const FRAME_INTERVAL = 100;
-const curlEngine = new BicepCurlEngine();
 
-export default function WebcamFeed() {
+export default function WebcamFeed({ exercise = 'bicep_curl' }) {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const lastFrameTime = useRef(0);
+  const engineRef = useRef(createEngine(exercise));
   const [cameraError, setCameraError] = useState('');
 
   const sessionActive = useSessionStore((s) => s.sessionActive);
@@ -31,7 +31,14 @@ export default function WebcamFeed() {
   const postureScore = useSessionStore((s) => s.postureScore);
 
   useEffect(() => {
-    curlEngine.reset();
+    engineRef.current = createEngine(exercise);
+    if (!sessionActive) {
+      resetLiveFeedback();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercise]);
+
+  useEffect(() => {
     if (!sessionActive) {
       resetLiveFeedback();
     }
@@ -88,12 +95,13 @@ export default function WebcamFeed() {
       if (landmarks) {
         drawLandmarks(ctx, landmarks, canvas.width, canvas.height);
         if (sessionActive) {
-          const results = curlEngine.processFrame(landmarks, Date.now());
+          const results = engineRef.current.processFrame(landmarks, Date.now());
           updateFeedback(results);
 
           if (results.valid) {
             socketService.sendCVResults({
               ...results,
+              exercise,
               landmarks,
             });
           }
@@ -112,7 +120,7 @@ export default function WebcamFeed() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [sessionActive, updateFeedback]);
+  }, [sessionActive, updateFeedback, exercise]);
 
   return (
     <div className="camera-shell">

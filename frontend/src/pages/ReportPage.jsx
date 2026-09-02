@@ -108,6 +108,22 @@ export default function ReportPage() {
           {injuryRisk.level} Risk · {injuryRisk.score}%
         </div>
 
+        {report.newlyEarnedBadges?.length > 0 && (
+          <div className="card" style={{ marginTop: '20px', padding: '18px 24px', borderColor: 'var(--accent-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <Trophy className="icon-md text-accent" />
+              <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--text)' }}>
+                {report.newlyEarnedBadges.length > 1 ? 'New Badges Unlocked!' : 'New Badge Unlocked!'}
+              </p>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {report.newlyEarnedBadges.map((b) => (
+                <span key={b.id} className="badge-blue" style={{ padding: '8px 14px' }}>{b.label}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div style={{ marginTop: '24px', marginBottom: '32px' }}>
           <p className="section-label">Session Report</p>
           <h1 className="page-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)' }}>

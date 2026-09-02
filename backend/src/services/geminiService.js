@@ -23,10 +23,11 @@ async function generateSessionInsights(summary) {
     return defaultInsights(summary);
   }
 
+  const exerciseLabel = (summary.exercise || 'bicep_curl').replace(/_/g, ' ');
   const prompt = [
     'You are FitMon, an expert strength coach.',
-    'Create a JSON-only post-session report for a bicep curl workout.',
-    'Focus on actionable suggestions, posture issues, and injury explanations.',
+    `Create a JSON-only post-session report for a ${exerciseLabel} workout.`,
+    'Focus on actionable suggestions, posture issues, and injury explanations specific to this exercise.',
     `Session: ${JSON.stringify(summary)}`,
     'Respond with JSON containing keys: summary, overallGrade, improvements, warnings, positiveFeedback, injuryExplanation.',
   ].join('\n');

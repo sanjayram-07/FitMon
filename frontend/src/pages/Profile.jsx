@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
 import useProfileStore from '../stores/useProfileStore';
+import { authorizedRequest } from '../services/apiClient';
 import '../index.css';
 
 export default function Profile() {
   const user = useAuthStore((state) => state.user);
+  const token = useAuthStore((state) => state.token);
   const {
     goal, streak, totalSessions, accuracyRate, recentSessions,
     fetchProfileMetrics, updateGoal, isLoading,
@@ -13,10 +15,31 @@ export default function Profile() {
 
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState('');
+  const [connectionsTab, setConnectionsTab] = useState(null);
+  const [connections, setConnections] = useState([]);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
 
   useEffect(() => {
     if (user) fetchProfileMetrics(user);
   }, [user, fetchProfileMetrics]);
+
+  const openConnections = async (tab) => {
+    if (connectionsTab === tab) {
+      setConnectionsTab(null);
+      return;
+    }
+    setConnectionsTab(tab);
+    setConnectionsLoading(true);
+    try {
+      const data = await authorizedRequest(`/api/social/users/${user.uid}/${tab}`, token);
+      setConnections(data[tab] || []);
+    } catch (e) {
+      console.error(`Failed to load ${tab}`, e);
+      setConnections([]);
+    } finally {
+      setConnectionsLoading(false);
+    }
+  };
 
   useEffect(() => {
     setGoalInput(goal || '');
@@ -70,7 +93,7 @@ export default function Profile() {
           }}>
             {initials}
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)', marginBottom: '4px' }}>
               {user?.name || 'Trainee'}
             </p>
@@ -78,6 +101,57 @@ export default function Profile() {
               {user?.email || '—'}
             </p>
           </div>
+          <Link to="/people" className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.82rem', flexShrink: 0 }}>
+            Find People
+          </Link>
+        </div>
+
+        {/* ── FOLLOWERS / FOLLOWING ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+          <button onClick={() => openConnections('followers')} className="card" style={{ textAlign: 'center', padding: '18px', cursor: 'pointer', border: connectionsTab === 'followers' ? '1px solid var(--accent)' : undefined }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--text)' }}>{user?.followersCount ?? 0}</p>
+            <p style={{ color: 'var(--muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '4px' }}>Followers</p>
+          </button>
+          <button onClick={() => openConnections('following')} className="card" style={{ textAlign: 'center', padding: '18px', cursor: 'pointer', border: connectionsTab === 'following' ? '1px solid var(--accent)' : undefined }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--text)' }}>{user?.followingCount ?? 0}</p>
+            <p style={{ color: 'var(--muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '4px' }}>Following</p>
+          </button>
+        </div>
+
+        {connectionsTab && (
+          <div className="card" style={{ marginBottom: '24px', padding: '16px 20px' }}>
+            {connectionsLoading ? (
+              <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Loading...</p>
+            ) : connections.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {connections.map((c) => (
+                  <Link key={c.uid} to={`/u/${c.uid}`} style={{ color: 'var(--text)', fontSize: '0.88rem', textDecoration: 'none' }}>
+                    {c.name || 'FitMon athlete'}
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+                {connectionsTab === 'followers' ? 'No followers yet.' : "You're not following anyone yet."}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ── BADGES ── */}
+        <div className="card" style={{ marginBottom: '24px', padding: '20px 24px' }}>
+          <p className="section-label" style={{ marginBottom: '14px' }}>Badges</p>
+          {user?.badges?.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+              {user.badges.map((b) => (
+                <span key={b.id || b} className="badge-blue" style={{ padding: '8px 14px' }}>
+                  {b.label || b}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Complete workouts to start earning badges.</p>
+          )}
         </div>
 
         {/* ── GOAL ── */}

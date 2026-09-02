@@ -1,5 +1,6 @@
 const { admin, getDb } = require('../firebase/admin');
 const { generateSessionInsights } = require('./geminiService');
+const { evaluateBadges } = require('./badgeService');
 
 async function saveSessionSummary(summary) {
   const db = getDb();
@@ -28,10 +29,21 @@ async function buildSessionReport(summary) {
     );
   }
 
+  let newlyEarnedBadges = [];
+  if (summary.uid) {
+    try {
+      const badgeResult = await evaluateBadges(summary.uid, summary);
+      newlyEarnedBadges = badgeResult.newlyEarned;
+    } catch (error) {
+      console.error('[Badges] Failed to evaluate badges:', error.message);
+    }
+  }
+
   return {
     ...summary,
     firestoreId,
     insights,
+    newlyEarnedBadges,
   };
 }
 

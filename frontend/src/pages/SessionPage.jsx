@@ -6,6 +6,7 @@ import WebcamFeed from '../components/WebcamFeed';
 import socketService from '../services/socketService';
 import useAuthStore from '../store/useAuthStore';
 import useSessionStore from '../stores/useSessionStore';
+import { EXERCISES } from '../utils/cvLogic';
 
 export default function SessionPage() {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ export default function SessionPage() {
   const isGeneratingReport = useSessionStore((state) => state.isGeneratingReport);
   const socketError = useSessionStore((state) => state.socketError);
   const resetSession = useSessionStore((state) => state.resetSession);
+  const [exercise, setExercise] = useState('bicep_curl');
 
   useEffect(() => {
     if (!token) return undefined;
@@ -36,8 +38,8 @@ export default function SessionPage() {
 
   const handleStart = useCallback(() => {
     if (!isConnected && token) socketService.connect(token);
-    socketService.startSession();
-  }, [isConnected, token]);
+    socketService.startSession(exercise);
+  }, [exercise, isConnected, token]);
 
   const handleEnd = useCallback(() => {
     socketService.endSession();
@@ -57,10 +59,26 @@ export default function SessionPage() {
           </h1>
           <p className="text-secondary" style={{ maxWidth: '540px' }}>
             {!sessionActive
-              ? 'Position yourself clearly in front of the camera and press Start when ready.'
+              ? (EXERCISES[exercise]?.tip || 'Position yourself clearly in front of the camera and press Start when ready.')
               : 'Keep your form steady. FitMon is tracking your posture and scoring each rep.'}
           </p>
         </div>
+
+        {!sessionActive && (
+          <div className="card fade-up" style={{ padding: '20px 24px', marginBottom: '24px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {Object.values(EXERCISES).map((ex) => (
+              <button
+                key={ex.id}
+                type="button"
+                onClick={() => setExercise(ex.id)}
+                className={exercise === ex.id ? 'btn-primary' : 'btn-secondary'}
+                style={{ padding: '10px 18px', fontSize: '0.85rem' }}
+              >
+                {ex.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* ── MAIN GRID ── */}
         <div className="session-grid">
@@ -70,7 +88,7 @@ export default function SessionPage() {
 
             {/* Camera feed */}
             <div className="card session-feed-card">
-              <WebcamFeed />
+              <WebcamFeed exercise={exercise} />
             </div>
 
             {/* Socket error */}

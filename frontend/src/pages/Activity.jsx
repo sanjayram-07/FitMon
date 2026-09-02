@@ -4,15 +4,23 @@ import { getFirestore, collection, query, where, getDocs } from 'firebase/firest
 import { firebaseApp } from '../firebase/config';
 import useAuthStore from '../store/useAuthStore';
 import { buildReportPdf, getReportPdfFileName } from '../utils/reportPdf';
+import { EXERCISES } from '../utils/cvLogic';
+import { authorizedRequest } from '../services/apiClient';
 import '../index.css';
 
 const db = firebaseApp ? getFirestore(firebaseApp) : null;
 
-export default function History() {
+const exerciseLabel = (id) => EXERCISES[id]?.label || 'Bicep Curl';
+
+export default function Activity() {
   const user = useAuthStore((state) => state.user);
+  const token = useAuthStore((state) => state.token);
   const [sessions, setSessions] = useState([]);
+  const [feed, setFeed] = useState([]);
+  const [feedLoading, setFeedLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
+  const [tab, setTab] = useState('mine');
 
   useEffect(() => {
     async function fetchSessions() {
@@ -45,6 +53,22 @@ export default function History() {
     }
     fetchSessions();
   }, [user]);
+
+  useEffect(() => {
+    async function fetchFeed() {
+      if (tab !== 'following' || !token) return;
+      setFeedLoading(true);
+      try {
+        const { activities } = await authorizedRequest('/api/social/feed', token);
+        setFeed(activities || []);
+      } catch (e) {
+        console.error('Failed to fetch following feed', e);
+      } finally {
+        setFeedLoading(false);
+      }
+    }
+    fetchFeed();
+  }, [tab, token]);
 
   const getRiskLevel = (score) => {
     if (score < 25) return 'Low Risk';
@@ -98,12 +122,30 @@ export default function History() {
       <div className="container" style={{ paddingTop: '96px', maxWidth: '960px', margin: '0 auto' }}>
 
         {/* Page header */}
-        <div style={{ marginBottom: '32px' }}>
-          <p className="section-label">History</p>
-          <h1 className="page-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.4rem)' }}>Session History</h1>
+        <div style={{ marginBottom: '24px' }}>
+          <p className="section-label">Activity</p>
+          <h1 className="page-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.4rem)' }}>Your Activity</h1>
         </div>
 
-        {/* Filter row */}
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+          <button
+            onClick={() => setTab('mine')}
+            className={tab === 'mine' ? 'btn-primary' : 'btn-secondary'}
+            style={{ padding: '8px 18px', fontSize: '0.82rem' }}
+          >
+            My Activity
+          </button>
+          <button
+            onClick={() => setTab('following')}
+            className={tab === 'following' ? 'btn-primary' : 'btn-secondary'}
+            style={{ padding: '8px 18px', fontSize: '0.82rem' }}
+          >
+            Following
+          </button>
+        </div>
+
+        {tab === 'mine' && (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', flexWrap: 'wrap' }}>
           {['All', 'Low Risk', 'Moderate Risk', 'High Risk'].map((f) => (
             <button
@@ -116,9 +158,39 @@ export default function History() {
             </button>
           ))}
         </div>
+        )}
 
         {/* Content */}
-        {loading ? (
+        {tab === 'following' ? (
+          feedLoading ? (
+            <div style={{ color: 'var(--muted)', textAlign: 'center', padding: '64px' }}>
+              Loading activity from people you follow...
+            </div>
+          ) : feed.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {feed.map((item) => (
+                <div key={item.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px' }}>
+                  <div>
+                    <p style={{ color: 'var(--text)', fontWeight: 600, fontSize: '0.95rem', marginBottom: '4px' }}>
+                      {item.name || item.email || 'FitMon athlete'}
+                    </p>
+                    <p style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>
+                      {exerciseLabel(item.exercise)} • {formatDate(getSessionTimestamp(item))}
+                    </p>
+                  </div>
+                  <span className="badge-blue">{item.totalReps || 0} reps</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="card" style={{ textAlign: 'center', padding: '64px 32px' }}>
+              <p style={{ color: 'var(--muted)', marginBottom: '24px' }}>
+                No activity yet from people you follow. Head to People to find athletes to follow.
+              </p>
+              <Link to="/people" className="btn-primary">Find People</Link>
+            </div>
+          )
+        ) : loading ? (
           <div style={{ color: 'var(--muted)', textAlign: 'center', padding: '64px' }}>
             Loading your sessions...
           </div>
@@ -145,7 +217,10 @@ export default function History() {
                         Duration: {formatDuration(sess.duration)}
                       </p>
                     </div>
-                    <span className={badge.cls}>{badge.text}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
+                      <span className="badge-blue">{exerciseLabel(sess.exercise)}</span>
+                      <span className={badge.cls}>{badge.text}</span>
+                    </div>
                   </div>
 
                   {/* Metrics */}

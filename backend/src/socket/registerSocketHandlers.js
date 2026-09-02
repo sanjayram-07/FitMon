@@ -14,7 +14,7 @@ const {
 
 function registerSocketHandlers(io) {
   io.on('connection', (socket) => {
-    socket.on('start_session', (_, callback) => {
+    socket.on('start_session', (data, callback) => {
       const existing = getSessionBySocket(socket.id);
       if (existing) {
         if (typeof callback === 'function') {
@@ -27,6 +27,7 @@ function registerSocketHandlers(io) {
         socketId: socket.id,
         uid: socket.user.uid,
         email: socket.user.email,
+        exercise: data?.exercise,
       });
 
       socket.emit('session_started', { sessionId: session.id });

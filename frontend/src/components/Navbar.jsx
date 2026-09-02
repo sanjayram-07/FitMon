@@ -105,9 +105,11 @@ export default function Navbar() {
 
   const links = [
     { label: 'Home', to: '/dashboard' },
+    { label: 'Diet', to: '/diet' },
     { label: 'Workout', to: '/workout' },
     { label: 'Session', to: '/session' },
-    { label: 'History', to: '/history' },
+    { label: 'Activity', to: '/activity' },
+    { label: 'People', to: '/people' },
     { label: 'Profile', to: '/profile' },
   ];
 

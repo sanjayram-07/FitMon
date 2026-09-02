@@ -10,6 +10,11 @@ async function ensureUserProfile(decodedToken) {
     email: decodedToken.email || '',
     role: 'trainee',
     goals: [],
+    onboarded: false,
+    followersCount: 0,
+    followingCount: 0,
+    totalSessions: 0,
+    badges: [],
     preferences: {
       dominantArm: 'right',
       units: 'metric',

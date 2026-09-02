@@ -79,9 +79,9 @@ class SocketService {
     }
   }
 
-  startSession() {
+  startSession(exercise = 'bicep_curl') {
     if (this.socket?.connected) {
-      this.socket.emit('start_session', {});
+      this.socket.emit('start_session', { exercise });
     }
   }
 

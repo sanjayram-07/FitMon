@@ -26,5 +26,13 @@ export default function ProtectedRoute({ roles }) {
     return <Navigate to={user.role === 'mentor' ? '/mentor' : '/dashboard'} replace />;
   }
 
+  if (
+    user.role === 'trainee' &&
+    !user.onboarded &&
+    location.pathname !== '/onboarding'
+  ) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return <Outlet />;
 }
