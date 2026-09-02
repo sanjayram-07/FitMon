@@ -18,6 +18,7 @@ export default function BlurText({
   text = '',
   delay = 120,
   className = '',
+  style,
   animateBy = 'words',
   direction = 'top',
   threshold = 0.15,
@@ -53,7 +54,7 @@ export default function BlurText({
   const offset = getDirectionalOffset(direction);
 
   return (
-    <div ref={ref} className={className} aria-label={text}>
+    <div ref={ref} className={className} style={style} aria-label={text}>
       {elements.map((segment, index) =>
         createElement(
           motion.span,

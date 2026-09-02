@@ -89,7 +89,7 @@ const useProfileStore = create((set) => ({
 
       const sessionsRef = collection(db, 'sessions');
       const queries = [];
-      if (uid) queries.push(getDocs(query(sessionsRef, where('userId', '==', uid))));
+      if (uid) queries.push(getDocs(query(sessionsRef, where('uid', '==', uid))));
       if (email) queries.push(getDocs(query(sessionsRef, where('email', '==', email))));
 
       const snapshots = await Promise.all(queries);

@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
 import useAuthStore from '../store/useAuthStore';
 import { authorizedRequest } from '../services/apiClient';
+import BlurText from '../components/BlurText';
 import '../index.css';
+
+const MotionForm = motion.form;
+const MotionP = motion.p;
 
 const ACTIVITY_OPTIONS = [
   { value: 1.2, label: 'Sedentary', hint: 'Little to no exercise, desk job' },
@@ -59,17 +64,40 @@ export default function Onboarding() {
   };
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '80px' }}>
-      <div className="container" style={{ paddingTop: '96px', maxWidth: '640px', margin: '0 auto' }}>
+    <div className="onboarding-shell" style={{ paddingBottom: '80px' }}>
+      <div className="onboarding-blob onboarding-blob--blue" />
+      <div className="onboarding-blob onboarding-blob--yellow" />
+      <div className="onboarding-blob onboarding-blob--red" />
+
+      <div className="container" style={{ position: 'relative', paddingTop: '96px', maxWidth: '640px', margin: '0 auto' }}>
         <div style={{ marginBottom: '32px' }}>
           <p className="section-label">Welcome to FitMon</p>
-          <h1 className="page-title" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.4rem)' }}>Let's set up your profile</h1>
-          <p className="text-secondary" style={{ marginTop: '8px' }}>
+          <BlurText
+            text="Let's set up your profile"
+            className="page-title"
+            direction="top"
+            animateBy="words"
+            style={{ fontSize: 'clamp(1.8rem, 3vw, 2.4rem)' }}
+          />
+          <MotionP
+            className="text-secondary"
+            style={{ marginTop: '8px' }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          >
             A few quick numbers so FitMon can calculate your BMI and build a Gemini-powered diet plan tuned to your body and training.
-          </p>
+          </MotionP>
         </div>
 
-        <form onSubmit={handleSubmit} className="card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <MotionForm
+          onSubmit={handleSubmit}
+          className="card onboarding-glass-card"
+          style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        >
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Field label="Sex">
               <select className="input-field" value={form.sex} onChange={(e) => update('sex', e.target.value)}>
@@ -153,7 +181,7 @@ export default function Onboarding() {
           <button type="submit" disabled={submitting} className="btn-primary button-block" style={{ padding: '14px 28px' }}>
             {submitting ? 'Saving...' : 'Save & Generate My Diet Plan'}
           </button>
-        </form>
+        </MotionForm>
       </div>
     </div>
   );

@@ -38,6 +38,17 @@
   --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
   --shadow-glow: 0 0 24px rgba(0, 229, 160, 0.15);
   --shadow-danger: 0 0 24px rgba(255, 77, 109, 0.15);
+
+  /* Neumorphism — soft dual light/dark shadow pair, tuned per-theme below. */
+  --shadow-neu-out: 8px 8px 18px rgba(0, 0, 0, 0.35), -8px -8px 18px rgba(255, 255, 255, 0.04);
+  --shadow-neu-out-hover: 11px 11px 22px rgba(0, 0, 0, 0.4), -11px -11px 22px rgba(255, 255, 255, 0.05);
+  --shadow-neu-in: inset 4px 4px 10px rgba(0, 0, 0, 0.35), inset -4px -4px 10px rgba(255, 255, 255, 0.03);
+
+  /* Bauhaus — bold primary-color accents used sparingly as geometric blocks/borders. */
+  --bauhaus-red: #e4572e;
+  --bauhaus-yellow: #f7b32b;
+  --bauhaus-blue: #2f6fe6;
+  --ease-bauhaus: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 * {
@@ -111,6 +122,10 @@ select {
   --accent-border: rgba(31, 78, 216, 0.2);
   --warning: #f2b24a;
   --blue: #2f6fe6;
+
+  --shadow-neu-out: 8px 8px 16px rgba(163, 158, 148, 0.35), -8px -8px 16px rgba(255, 255, 255, 0.85);
+  --shadow-neu-out-hover: 11px 11px 20px rgba(163, 158, 148, 0.4), -11px -11px 20px rgba(255, 255, 255, 0.9);
+  --shadow-neu-in: inset 4px 4px 10px rgba(163, 158, 148, 0.3), inset -4px -4px 10px rgba(255, 255, 255, 0.75);
   background:
     radial-gradient(circle at 18% 12%, rgba(47, 111, 230, 0.1), transparent 40%),
     radial-gradient(circle at 85% 4%, rgba(31, 78, 216, 0.08), transparent 42%),
@@ -252,54 +267,61 @@ select {
 
 .card {
   background: var(--card);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
+  border-left: 3px solid var(--accent-border);
   border-radius: var(--radius-lg);
   padding: 24px;
-  transition: background 0.2s, border-color 0.2s;
+  box-shadow: var(--shadow-neu-out);
+  transition: transform 0.25s var(--ease-bauhaus), box-shadow 0.25s var(--ease-bauhaus), border-color 0.2s;
 }
 
 .card:hover {
-  background: var(--card-hover);
-  border-color: var(--border-light);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-neu-out-hover);
+  border-left-color: var(--accent);
 }
 
 .btn-primary {
   background: var(--accent-btn);
   color: #0b0f17;
   font-family: var(--font-body);
-  font-weight: 500;
+  font-weight: 600;
   padding: 12px 28px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   border: none;
   cursor: pointer;
   font-size: 0.9rem;
-  transition: transform 0.2s, opacity 0.2s;
+  box-shadow: var(--shadow-neu-out);
+  transition: transform 0.2s var(--ease-bauhaus), box-shadow 0.2s var(--ease-bauhaus), opacity 0.2s;
   display: inline-block;
   text-decoration: none;
 }
 
 .btn-primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+  opacity: 0.94;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-neu-out-hover);
   color: #0b0f17;
 }
 
 .btn-primary:active {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.97);
+  box-shadow: var(--shadow-neu-in);
   color: #0b0f17;
 }
 
 .btn-secondary {
-  background: transparent;
+  background: var(--card);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   font-family: var(--font-body);
-  font-weight: 400;
-  padding: 12px 28px;
-  border-radius: var(--radius-md);
+  font-weight: 500;
+  padding: 11px 27px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.9rem;
-  transition: border-color 0.2s, background 0.2s;
+  box-shadow: var(--shadow-neu-out);
+  transition: transform 0.2s var(--ease-bauhaus), box-shadow 0.2s var(--ease-bauhaus), border-color 0.2s, background 0.2s;
   display: inline-block;
   text-decoration: none;
 }
@@ -307,10 +329,13 @@ select {
 .btn-secondary:hover {
   border-color: var(--accent);
   background: var(--accent-dim);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-neu-out-hover);
 }
 
 .btn-secondary:active {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.97);
+  box-shadow: var(--shadow-neu-in);
 }
 
 .btn-danger {
@@ -353,16 +378,71 @@ select {
   font-family: var(--font-body);
   font-size: 0.9rem;
   width: 100%;
-  transition: border-color 0.2s;
+  box-shadow: var(--shadow-neu-in);
+  transition: border-color 0.2s, box-shadow 0.2s;
   outline: none;
 }
 
 .input-field:focus {
   border-color: var(--accent);
+  box-shadow: var(--shadow-neu-in), 0 0 0 3px var(--accent-dim);
 }
 
 .input-field::placeholder {
   color: var(--muted);
+}
+
+/* ── Onboarding — blurred Bauhaus-colored blobs behind a frosted glass card ── */
+.onboarding-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.onboarding-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.45;
+  pointer-events: none;
+  animation: drift 22s ease-in-out infinite;
+}
+
+.onboarding-blob--blue {
+  top: -10%;
+  left: -8%;
+  width: 30rem;
+  height: 30rem;
+  background: radial-gradient(circle, var(--bauhaus-blue), transparent 65%);
+}
+
+.onboarding-blob--yellow {
+  bottom: -12%;
+  right: -6%;
+  width: 26rem;
+  height: 26rem;
+  background: radial-gradient(circle, var(--bauhaus-yellow), transparent 65%);
+  animation-duration: 26s;
+}
+
+.onboarding-blob--red {
+  top: 30%;
+  right: 15%;
+  width: 16rem;
+  height: 16rem;
+  background: radial-gradient(circle, var(--bauhaus-red), transparent 65%);
+  opacity: 0.3;
+  animation-duration: 18s;
+}
+
+.onboarding-glass-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: var(--shadow-neu-out);
 }
 
 .badge-success {
